@@ -1,0 +1,1 @@
+LyricTag — lyrics & metadata companion for Poweramp. Finds missing lyrics (plain + synced LRC) via LRCLIB, flags incomplete tags, reviews changes before writing, embeds or saves .lrc files. Offline-first, no tracking, no Play Services.

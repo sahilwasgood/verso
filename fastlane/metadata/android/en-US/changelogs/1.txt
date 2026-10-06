@@ -1,0 +1,1 @@
+Initial public build: Poweramp lyrics plugin, library scan, LRCLIB lookup, review-before-write.
