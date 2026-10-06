@@ -1,6 +1,5 @@
 package org.lyrictag.companion.scan
 
-import android.content.ContentUris
 import android.content.Context
 import android.os.Build
 import android.provider.MediaStore
@@ -17,18 +16,24 @@ import java.io.File
  * (authoritative tags incl. embedded lyrics). Skips unchanged files by
  * lastModified. Writes TrackEntity rows.
  */
-class LibraryScanner(private val context: Context, private val tracks: TrackDao) {
+class LibraryScanner(
+    private val context: Context,
+    private val tracks: TrackDao,
+    private val cache: org.lyrictag.companion.db.LyricsCacheDao,
+) {
 
     data class Progress(val done: Int, val total: Int)
 
-    suspend fun scan(onProgress: (Progress) -> Unit = {}): Int {
+    data class ScanResult(val scanned: Int, val addedOrUpdated: Int, val removed: Int)
+
+    suspend fun scan(onProgress: (Progress) -> Unit = {}): ScanResult {
         val uris = collectAudio(onProgress)
         var done = 0
         var updated = 0
         val batch = mutableListOf<TrackEntity>()
         for ((path, lastMod, durationMs, mime) in uris) {
             val existing = tracks.byPath(path)
-            if (existing != null && existing.lastModified == lastMod) {
+            if (existing != null && existing.lastModified == lastMod && existing.cacheKey.isNotEmpty()) {
                 done++
                 if (done % 50 == 0) onProgress(Progress(done, uris.size))
                 continue
@@ -42,8 +47,18 @@ class LibraryScanner(private val context: Context, private val tracks: TrackDao)
             if (done % 20 == 0) onProgress(Progress(done, uris.size))
         }
         if (batch.isNotEmpty()) tracks.upsertAll(batch)
+        // Prune files that no longer exist (deleted/renamed/moved).
+        val seen = uris.map { it.path }.toSet()
+        val stale = tracks.allPaths().filter { it !in seen }
+        for (chunk in stale.chunked(200)) tracks.deletePaths(chunk)
+        // Reconcile: flag tracks whose lyrics arrived via cache since last scan.
+        tracks.resetCached()
+        for (key in cache.allKeys()) {
+            val (full, loose) = org.lyrictag.companion.db.splitCacheKey(key)
+            tracks.markCached(full, loose)
+        }
         onProgress(Progress(uris.size, uris.size))
-        return updated
+        return ScanResult(uris.size, updated, stale.size)
     }
 
     private data class AudioRow(val path: String, val lastMod: Long, val durationMs: Long?, val mime: String?)
@@ -96,6 +111,10 @@ class LibraryScanner(private val context: Context, private val tracks: TrackDao)
                 mimeType = mime ?: r.info.mimeType, lastModified = lastMod,
                 hasEmbeddedLyrics = !r.tags.lyrics.isNullOrBlank(),
                 hasExternalLyrics = hasSidecar(path),
+                hasCachedLyrics = false, // reconciled against lyrics_cache after scan
+                cacheKey = org.lyrictag.companion.core.TrackNormalizer.cacheKey(
+                    r.tags.title, r.tags.artist, r.tags.album,
+                ),
                 needsReview = r.tags.title.isNullOrBlank() || r.tags.artist.isNullOrBlank(),
                 ignored = ignored,
             )

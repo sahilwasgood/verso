@@ -35,12 +35,25 @@ import org.lyrictag.companion.ui.screens.TrackDetailScreen
 import org.lyrictag.companion.ui.theme.LyricTagTheme
 
 class MainActivity : ComponentActivity() {
+
+    private val prefs by lazy { getSharedPreferences("lyrictag", MODE_PRIVATE) }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val app = LyricTagApp.of(this)
         setContent {
-            var dynamicColor by remember { mutableStateOf(true) }
-            var autoFetch by remember { mutableStateOf(true) }
+            var dynamicColor by remember {
+                mutableStateOf(prefs.getBoolean("dynamic_color", true))
+            }
+            var autoFetch by remember {
+                mutableStateOf(prefs.getBoolean("auto_fetch", true))
+            }
+            var cacheSize by remember { mutableStateOf("…") }
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                cacheSize = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    app.lyricsCacheSize()
+                }
+            }
             LyricTagTheme(dynamicColor = dynamicColor) {
                 val nav = rememberNavController()
                 Scaffold(
@@ -68,10 +81,12 @@ class MainActivity : ComponentActivity() {
                                 val vm: LibraryViewModel = viewModel {
                                     LibraryViewModel(app.db.tracks())
                                 }
-                                LibraryScreen(vm, onTrack = { nav.navigate("track/$it") })
+                                LibraryScreen(vm, onTrack = { path ->
+                                    nav.navigate("track/${android.net.Uri.encode(path)}")
+                                })
                             }
                             composable("track/{path}") { e ->
-                                val path = e.arguments?.getString("path").orEmpty()
+                                val path = android.net.Uri.decode(e.arguments?.getString("path")).orEmpty()
                                 val vm: DetailViewModel = viewModel {
                                     DetailViewModel(app.db.tracks(), app.lyricsRepository)
                                 }
@@ -82,8 +97,27 @@ class MainActivity : ComponentActivity() {
                                 TrackDetailScreen(path, vm, track)
                             }
                             composable("settings") {
-                                SettingsScreen(dynamicColor, { dynamicColor = it }, autoFetch,
-                                    { autoFetch = it }, onClearCache = {}, onOpenPrivacy = {})
+                                SettingsScreen(
+                                    dynamicColor = dynamicColor,
+                                    onDynamicColor = {
+                                        dynamicColor = it
+                                        prefs.edit().putBoolean("dynamic_color", it).apply()
+                                    },
+                                    autoFetch = autoFetch,
+                                    onAutoFetch = {
+                                        autoFetch = it
+                                        prefs.edit().putBoolean("auto_fetch", it).apply()
+                                    },
+                                    cacheSize = cacheSize,
+                                    onClearCache = {
+                                        Thread {
+                                            app.clearLyricCache()
+                                            val s = app.lyricsCacheSize()
+                                            runOnUiThread { cacheSize = s }
+                                        }.start()
+                                    },
+                                    privacyText = PRIVACY_TEXT,
+                                )
                             }
                         }
                     }
@@ -92,6 +126,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
+private const val PRIVACY_TEXT =
+    "LyricTag works offline. Network is used only when lyrics are fetched: " +
+        "the track title, artist, album and duration are sent to LRCLIB " +
+        "(lrclib.net) to find matching lyrics. Nothing else leaves the device. " +
+        "No accounts, analytics or tracking."
 
 @Composable
 private fun androidx.compose.foundation.layout.RowScope.BarItem(

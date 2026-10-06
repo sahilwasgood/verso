@@ -29,5 +29,7 @@ object PowerampContract {
     const val FILE_TYPE_STREAM = 23
 
     const val POWERAMP_PACKAGE = "com.maxmpz.audioplayer"
+    const val POWERAMP_API_RECEIVER = "com.maxmpz.audioplayer.player.PowerampAPIReceiver"
+    const val EXTRA_PACKAGE = "pak"
     const val INFO_LINE = "Lyrics via LyricTag"
 }

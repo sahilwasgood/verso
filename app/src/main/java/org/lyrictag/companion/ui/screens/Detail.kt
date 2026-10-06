@@ -43,6 +43,7 @@ import java.io.File
 data class DetailState(
     val loading: Boolean = true,
     val candidates: List<ScoredLyrics> = emptyList(),
+    val fromCache: Boolean = false,
     val message: String? = null,
 )
 
@@ -55,30 +56,48 @@ class DetailViewModel(
 
     fun load(path: String) {
         viewModelScope.launch {
-            _state.value = DetailState(loading = false)
-            val t = dao.byPath(path) ?: return@launch
+            _state.value = DetailState(loading = true)
+            val t = dao.byPath(path)
+            if (t == null) {
+                _state.value = DetailState(loading = false)
+                return@launch
+            }
+            if (t == null) {
+                _state.value = DetailState(loading = false)
+                return@launch
+            }
+            // Always search: candidates let the user pick the right version
+            // before embedding. fromCache just labels tracks already served.
             val list = withContext(Dispatchers.IO) {
                 runCatching {
                     repo.search(t.title.orEmpty(), t.artist.orEmpty(), t.album.orEmpty(), t.durationMs ?: 0)
                 }.getOrDefault(emptyList())
             }
-            _state.value = DetailState(loading = false, candidates = list)
+            _state.value = DetailState(loading = false, candidates = list, fromCache = t.hasCachedLyrics)
         }
     }
 
     fun embed(path: String, lyrics: String, onDone: (String) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             val err = TagManager.embedLyrics(File(path), lyrics)
+            if (err == null) dao.updateLyricFlags(path, embedded = true, external = dao.byPath(path)?.hasExternalLyrics ?: false)
             withContext(Dispatchers.Main) { onDone(err ?: "Lyrics embedded.") }
         }
     }
 
-    fun saveSidecar(path: String, lyrics: String, synced: Boolean, onDone: (String) -> Unit) {
+    fun setIgnored(path: String, ignored: Boolean, onDone: () -> Unit = {}) {
         viewModelScope.launch(Dispatchers.IO) {
+            dao.setIgnored(path, ignored)
+            withContext(Dispatchers.Main) { onDone() }
+        }
+    }
+
+    fun saveSidecar(path: String, lyrics: String, synced: Boolean, onDone: (String) -> Unit) {        viewModelScope.launch(Dispatchers.IO) {
             val base = path.substringBeforeLast('.')
             val target = File(base + if (synced) ".lrc" else ".txt")
             val msg = runCatching {
                 target.writeText(if (synced) lyrics else LrcParser.parse(lyrics).lines.joinToString("\n") { it.text })
+                dao.updateLyricFlags(path, embedded = dao.byPath(path)?.hasEmbeddedLyrics ?: false, external = true)
                 "Saved ${target.name}."
             }.getOrElse { "Save failed: ${it.message?.take(100)}" }
             withContext(Dispatchers.Main) { onDone(msg) }
@@ -137,15 +156,34 @@ fun TrackDetailScreen(path: String, vm: DetailViewModel, track: org.lyrictag.com
             style = MaterialTheme.typography.bodySmall,
         )
         Divider(Modifier.padding(vertical = 12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { vm.load(path) }) { Text("Fetch lyrics") }
+            OutlinedButton(onClick = { notice = "Track ignored. It is hidden from counts and lists."; vm.setIgnored(path, true) }) {
+                Text("Ignore track")
+            }
+        }
+        Divider(Modifier.padding(vertical = 12.dp))
         if (s.loading) {
             CircularProgressIndicator()
-        } else if (s.candidates.isEmpty()) {
+        } else if (s.fromCache) {
+            Text(
+                "Lyrics for this track are already saved on-device (e.g. fetched for Poweramp). " +
+                    "Pick a version below to embed into the file or save as .lrc — or retry for fresh results.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+        if (!s.loading && s.candidates.isEmpty() && !s.fromCache) {
             Text("No lyrics found. Check the spelling of title/artist, then retry.")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = { vm.load(path) }) { Text("Retry") }
             }
-        } else {
-            Text("Candidates (best first)", style = MaterialTheme.typography.titleMedium)
+        }
+        if (!s.loading && (s.candidates.isNotEmpty() || s.fromCache)) {
+            if (s.candidates.isNotEmpty()) {
+                Text("Candidates (best first)", style = MaterialTheme.typography.titleMedium)
+            } else {
+                OutlinedButton(onClick = { vm.load(path) }) { Text("Search for versions to embed") }
+            }
             s.candidates.forEach { c ->
                 Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                     Text(

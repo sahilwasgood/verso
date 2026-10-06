@@ -31,8 +31,10 @@ import org.lyrictag.companion.scan.LibraryScanner
 data class DashboardState(
     val total: Int = 0,
     val missingLyrics: Int = 0,
+    val withLyrics: Int = 0,
     val scanning: Boolean = false,
     val scanProgress: String? = null,
+    val lastResult: String? = null,
 )
 
 class DashboardViewModel(
@@ -53,19 +55,34 @@ class DashboardViewModel(
                 _state.value = _state.value.copy(missingLyrics = missing)
             }
         }
+        viewModelScope.launch {
+            dao.observeWithLyrics().collect { with ->
+                _state.value = _state.value.copy(withLyrics = with)
+            }
+        }
     }
 
     fun scan() {
         if (_state.value.scanning) return
         viewModelScope.launch {
-            _state.value = _state.value.copy(scanning = true, scanProgress = null)
-            try {
-                scanner.scan { p ->
-                    _state.value = _state.value.copy(scanProgress = "${p.done} / ${p.total}")
+            _state.value = _state.value.copy(scanning = true, scanProgress = null, lastResult = null)
+            val summary = try {
+                var last = ""
+                val r = scanner.scan { p ->
+                    last = "${p.done} / ${p.total}"
+                    _state.value = _state.value.copy(scanProgress = last)
                 }
+                buildString {
+                    append("Scan complete: ${r.scanned} tracks")
+                    if (r.removed > 0) append(", ${r.removed} removed")
+                    if (r.addedOrUpdated > 0) append(", ${r.addedOrUpdated} updated")
+                }
+            } catch (t: Throwable) {
+                "Scan failed: ${t.message?.take(100) ?: "unknown error"}"
             } finally {
-                _state.value = _state.value.copy(scanning = false, scanProgress = null)
+                // Counts refresh automatically via the observed flows.
             }
+            _state.value = _state.value.copy(scanning = false, scanProgress = null, lastResult = summary)
         }
     }
 }
@@ -93,7 +110,7 @@ fun DashboardScreen(
                 Text("${s.total} tracks", style = MaterialTheme.typography.headlineMedium)
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "${s.total - s.missingLyrics} with lyrics · ${s.missingLyrics} need lyrics",
+                    "${s.withLyrics} with lyrics · ${s.missingLyrics} need lyrics",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -103,6 +120,10 @@ fun DashboardScreen(
                         if (s.scanning) CircularProgressIndicator()
                         Text("Scanning music… $it", style = MaterialTheme.typography.bodyMedium)
                     }
+                }
+                s.lastResult?.let {
+                    Spacer(Modifier.height(8.dp))
+                    Text(it, style = MaterialTheme.typography.bodyMedium)
                 }
             }
         }

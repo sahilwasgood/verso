@@ -48,7 +48,9 @@ class LyricsRequestReceiver : BroadcastReceiver() {
 
         val appContext = context.applicationContext
         scope.launch {
-            val repo = ServiceLocator.lyricsRepository(appContext)
+            val app = org.lyrictag.companion.LyricTagApp.of(appContext)
+            if (!app.autoFetchEnabled()) return@launch // user disabled auto-fetch
+            val repo = app.lyricsRepository
             val lyrics = try {
                 repo.fetchForPoweramp(title, artist, album, durationMs)
             } catch (t: Throwable) {
@@ -61,11 +63,16 @@ class LyricsRequestReceiver : BroadcastReceiver() {
 
     private fun sendResponse(context: Context, realId: Long, lyrics: String?) {
         val out = Intent(PowerampContract.ACTION_UPDATE_LYRICS).apply {
+            // Explicit component: implicit broadcasts don't reliably reach
+            // manifest receivers on Android 8+ (mirrors PowerampAPIHelper.sendPAIntent).
+            component = android.content.ComponentName(
+                PowerampContract.POWERAMP_PACKAGE,
+                PowerampContract.POWERAMP_API_RECEIVER,
+            )
+            putExtra(PowerampContract.EXTRA_PACKAGE, context.packageName)
             putExtra(PowerampContract.EXTRA_ID, realId)
             if (lyrics != null) putExtra(PowerampContract.EXTRA_LYRICS, lyrics)
             putExtra(PowerampContract.EXTRA_INFO_LINE, PowerampContract.INFO_LINE)
-            // Explicit package: Poweramp listens package-scoped; avoids broadcast spray.
-            setPackage(PowerampContract.POWERAMP_PACKAGE)
         }
         try {
             context.sendBroadcast(out)
