@@ -14,8 +14,26 @@ android {
         applicationId = "org.lyrictag.companion"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 3
+        versionName = "0.3.0"
+    }
+
+    signingConfigs {
+        // Release signing via environment (CI) or ~/.gradle/gradle.properties.
+        // Absent credentials -> release stays unsigned (assembleRelease still works for audit).
+        create("release") {
+            val f = System.getenv("LYRICTAG_STORE_FILE")
+                ?: project.findProperty("LYRICTAG_STORE_FILE") as? String
+            if (!f.isNullOrBlank()) {
+                storeFile = file(f)
+                storePassword = System.getenv("LYRICTAG_STORE_PASSWORD")
+                    ?: project.findProperty("LYRICTAG_STORE_PASSWORD") as? String
+                keyAlias = System.getenv("LYRICTAG_KEY_ALIAS")
+                    ?: project.findProperty("LYRICTAG_KEY_ALIAS") as? String
+                keyPassword = System.getenv("LYRICTAG_KEY_PASSWORD")
+                    ?: project.findProperty("LYRICTAG_KEY_PASSWORD") as? String
+            }
+        }
     }
 
     buildTypes {
@@ -26,6 +44,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Only sign when credentials are actually configured.
+            val cfg = signingConfigs.getByName("release")
+            if (cfg.storeFile?.exists() == true) signingConfig = cfg
         }
     }
 

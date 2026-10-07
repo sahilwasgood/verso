@@ -28,7 +28,11 @@ import androidx.navigation.compose.rememberNavController
 import org.lyrictag.companion.ui.screens.DashboardScreen
 import org.lyrictag.companion.ui.screens.DashboardViewModel
 import org.lyrictag.companion.ui.screens.DetailViewModel
+import org.lyrictag.companion.ui.screens.FoldersScreen
+import org.lyrictag.companion.ui.screens.FoldersViewModel
 import org.lyrictag.companion.ui.screens.LibraryScreen
+import org.lyrictag.companion.ui.screens.ScrobbleScreen
+import org.lyrictag.companion.ui.screens.ScrobbleViewModel
 import org.lyrictag.companion.ui.screens.LibraryViewModel
 import org.lyrictag.companion.ui.screens.SettingsScreen
 import org.lyrictag.companion.ui.screens.TrackDetailScreen
@@ -48,7 +52,11 @@ class MainActivity : ComponentActivity() {
             var autoFetch by remember {
                 mutableStateOf(prefs.getBoolean("auto_fetch", true))
             }
+            var scrobbleEnabled by remember {
+                mutableStateOf(prefs.getBoolean("scrobble_enabled", false))
+            }
             var cacheSize by remember { mutableStateOf("…") }
+            var foldersSummary by remember { mutableStateOf("") }
             androidx.compose.runtime.LaunchedEffect(Unit) {
                 cacheSize = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                     app.lyricsCacheSize()
@@ -71,7 +79,7 @@ class MainActivity : ComponentActivity() {
                         NavHost(nav, startDestination = "home") {
                             composable("home") {
                                 val vm: DashboardViewModel = viewModel {
-                                    DashboardViewModel(app.db.tracks(), app.scanner)
+                                    DashboardViewModel(app.db.tracks(), app.scanner, app)
                                 }
                                 DashboardScreen(vm,
                                     onBrowse = { nav.navigate("library") },
@@ -88,7 +96,7 @@ class MainActivity : ComponentActivity() {
                             composable("track/{path}") { e ->
                                 val path = android.net.Uri.decode(e.arguments?.getString("path")).orEmpty()
                                 val vm: DetailViewModel = viewModel {
-                                    DetailViewModel(app.db.tracks(), app.lyricsRepository)
+                                    DetailViewModel(app.db.tracks(), app.lyricsRepository, app.scanner)
                                 }
                                 val track by androidx.compose.runtime.produceState<
                                     org.lyrictag.companion.db.TrackEntity?>(null, path) {
@@ -97,6 +105,13 @@ class MainActivity : ComponentActivity() {
                                 TrackDetailScreen(path, vm, track)
                             }
                             composable("settings") {
+                                val selected = org.lyrictag.companion.scan.ScanFolders.selected(this@MainActivity)
+                                foldersSummary = if (selected.isEmpty())
+                                    "Automatic — your Poweramp library when available, else whole device"
+                                else if (selected.size == 1)
+                                    "Manual override — 1 folder: ${selected.first()}"
+                                else
+                                    "Manual override — ${selected.size} folders: ${selected.sorted().joinToString(", ")}"
                                 SettingsScreen(
                                     dynamicColor = dynamicColor,
                                     onDynamicColor = {
@@ -116,8 +131,33 @@ class MainActivity : ComponentActivity() {
                                             runOnUiThread { cacheSize = s }
                                         }.start()
                                     },
+                                    foldersSummary = foldersSummary,
+                                    onOpenFolders = { nav.navigate("folders") },
+                                    scrobbleSummary = if (scrobbleEnabled)
+                                        "On — scrobbling Poweramp playback"
+                                    else
+                                        "Off",
+                                    onOpenScrobble = { nav.navigate("scrobble") },
                                     privacyText = PRIVACY_TEXT,
                                 )
+                            }
+                            composable("scrobble") {
+                                val vm: ScrobbleViewModel = viewModel {
+                                    ScrobbleViewModel(app.db)
+                                }
+                                ScrobbleScreen(
+                                    vm, enabled = scrobbleEnabled,
+                                    onEnabled = {
+                                        scrobbleEnabled = it
+                                        prefs.edit().putBoolean("scrobble_enabled", it).apply()
+                                    },
+                                )
+                            }
+                            composable("folders") {
+                                val vm: FoldersViewModel = viewModel {
+                                    FoldersViewModel(app.scanner)
+                                }
+                                FoldersScreen(vm, onDone = { nav.popBackStack() })
                             }
                         }
                     }
@@ -129,9 +169,11 @@ class MainActivity : ComponentActivity() {
 
 private const val PRIVACY_TEXT =
     "LyricTag works offline. Network is used only when lyrics are fetched: " +
-        "the track title, artist, album and duration are sent to LRCLIB " +
-        "(lrclib.net) to find matching lyrics. Nothing else leaves the device. " +
-        "No accounts, analytics or tracking."
+        "the track title, artist, album and duration are sent to lyric services " +
+        "(LRCLIB, AMLL, KuGou, Lyricify, LunaBeat) to find matching lyrics. " +
+        "Scrobbling, when enabled, sends the played track name, artist and time " +
+        "to ListenBrainz and/or Last.fm using your own tokens. " +
+        "Nothing else leaves the device. No accounts, analytics or tracking."
 
 @Composable
 private fun androidx.compose.foundation.layout.RowScope.BarItem(

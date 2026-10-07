@@ -31,5 +31,9 @@ object PowerampContract {
     const val POWERAMP_PACKAGE = "com.maxmpz.audioplayer"
     const val POWERAMP_API_RECEIVER = "com.maxmpz.audioplayer.player.PowerampAPIReceiver"
     const val EXTRA_PACKAGE = "pak"
+
+    /** Asks Poweramp to grant this app its content-provider data permission. */
+    const val ACTION_ASK_FOR_DATA_PERMISSION = "com.maxmpz.audioplayer.ACTION_ASK_FOR_DATA_PERMISSION"
+    const val EXTRA_PACKAGE_NAME = "package"
     const val INFO_LINE = "Lyrics via LyricTag"
 }

@@ -31,12 +31,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.paging.cachedIn
+import androidx.paging.compose.collectAsLazyPagingItems
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.launch
 import org.lyrictag.companion.db.TrackDao
 import org.lyrictag.companion.db.TrackEntity
 
@@ -53,9 +54,14 @@ class LibraryViewModel(private val dao: TrackDao) : ViewModel() {
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query
 
-    val tracks: StateFlow<List<TrackEntity>> = dao.observeAll()
-        .map { it }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    @OptIn(androidx.paging.ExperimentalPagingApi::class, kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val paging = kotlinx.coroutines.flow.combine(_filter, _query) { f, q -> f to q }
+        .flatMapLatest { (f, q) ->
+            androidx.paging.Pager(
+                androidx.paging.PagingConfig(pageSize = 50, enablePlaceholders = false)
+            ) { dao.paged(f.ordinal, q.trim()) }.flow
+        }
+        .cachedIn(viewModelScope)
 
     fun setFilter(f: LibraryFilter) { _filter.value = f }
     fun setQuery(q: String) { _query.value = q }
@@ -65,31 +71,14 @@ class LibraryViewModel(private val dao: TrackDao) : ViewModel() {
             dao.setIgnored(t.path, !t.ignored)
         }
     }
-
-    fun visible(all: List<TrackEntity>, f: LibraryFilter, q: String): List<TrackEntity> {
-        var list = when (f) {
-            LibraryFilter.ALL -> all
-            LibraryFilter.MISSING_LYRICS -> all.filter { !it.hasEmbeddedLyrics && !it.hasExternalLyrics && !it.hasCachedLyrics }
-            LibraryFilter.INCOMPLETE -> all.filter { it.title.isNullOrBlank() || it.artist.isNullOrBlank() || it.album.isNullOrBlank() }
-            LibraryFilter.NEEDS_REVIEW -> all.filter { it.needsReview }
-        }
-        if (q.isNotBlank()) {
-            list = list.filter {
-                it.title?.contains(q, true) == true || it.artist?.contains(q, true) == true ||
-                    it.album?.contains(q, true) == true
-            }
-        }
-        return list
-    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LibraryScreen(vm: LibraryViewModel, onTrack: (String) -> Unit) {
-    val all by vm.tracks.collectAsState()
     val filter by vm.filter.collectAsState()
     val query by vm.query.collectAsState()
-    val list = remember(all, filter, query) { vm.visible(all, filter, query) }
+    val lazyTracks = vm.paging.collectAsLazyPagingItems()
     var ignoreTarget by remember { mutableStateOf<TrackEntity?>(null) }
 
     ignoreTarget?.let { t ->
@@ -124,13 +113,17 @@ fun LibraryScreen(vm: LibraryViewModel, onTrack: (String) -> Unit) {
             }
         }
         Text(
-            "${list.size} tracks",
+            "${lazyTracks.itemCount} tracks",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(vertical = 4.dp),
         )
         LazyColumn(Modifier.fillMaxSize()) {
-            items(list, key = { it.path }) { t ->
+            items(
+                count = lazyTracks.itemCount,
+                key = { i -> lazyTracks[i]?.path ?: i },
+            ) { i ->
+                val t = lazyTracks[i] ?: return@items
                 ListItem(
                     headlineContent = { Text(t.title ?: "(unknown title)") },
                     supportingContent = {

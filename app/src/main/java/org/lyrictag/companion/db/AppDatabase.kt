@@ -41,6 +41,17 @@ data class LyricsCacheEntity(
     val updatedAt: Long,
 )
 
+/** Offline scrobble queue: submitted with their original timestamps when back online. */
+@Entity(tableName = "scrobble_queue")
+data class ScrobbleEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val title: String,
+    val artist: String,
+    val album: String?,
+    val durationMs: Long?,
+    val listenedAtSec: Long,
+)
+
 @Dao
 interface TrackDao {
     @Query("SELECT * FROM tracks WHERE ignored = 0 ORDER BY artist, album, trackNo")
@@ -58,11 +69,29 @@ interface TrackDao {
     @Query("SELECT * FROM tracks WHERE path = :path LIMIT 1")
     suspend fun byPath(path: String): TrackEntity?
 
+    @Query("SELECT * FROM tracks")
+    suspend fun allTracks(): List<TrackEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(tracks: List<TrackEntity>)
 
     @Query("SELECT path FROM tracks")
     suspend fun allPaths(): List<String>
+
+    /**
+     * Paged library with server-side filter + search (keeps 10k+ libraries smooth).
+     * filter: 0 all, 1 missing lyrics, 2 incomplete metadata, 3 needs review.
+     */
+    @Query(
+        "SELECT * FROM tracks WHERE ignored = 0 " +
+            "AND (:filter = 0 " +
+            "OR (:filter = 1 AND hasEmbeddedLyrics = 0 AND hasExternalLyrics = 0 AND hasCachedLyrics = 0) " +
+            "OR (:filter = 2 AND (title IS NULL OR title = '' OR artist IS NULL OR artist = '' OR album IS NULL OR album = '')) " +
+            "OR (:filter = 3 AND needsReview = 1)) " +
+            "AND (:q = '' OR title LIKE '%' || :q || '%' OR artist LIKE '%' || :q || '%' OR album LIKE '%' || :q || '%') " +
+            "ORDER BY artist, album, trackNo"
+    )
+    fun paged(filter: Int, q: String): androidx.paging.PagingSource<Int, TrackEntity>
 
     @Query("DELETE FROM tracks WHERE path IN (:paths)")
     suspend fun deletePaths(paths: List<String>)
@@ -80,6 +109,21 @@ interface TrackDao {
 
     @Query("UPDATE tracks SET ignored = :ignored WHERE path = :path")
     suspend fun setIgnored(path: String, ignored: Boolean)
+}
+
+@Dao
+interface ScrobbleDao {
+    @Insert
+    suspend fun enqueue(e: ScrobbleEntity)
+
+    @Query("SELECT * FROM scrobble_queue ORDER BY id LIMIT 100")
+    suspend fun oldest(): List<ScrobbleEntity>
+
+    @Query("DELETE FROM scrobble_queue WHERE id = :id")
+    suspend fun remove(id: Long)
+
+    @Query("SELECT COUNT(*) FROM scrobble_queue")
+    fun observePending(): Flow<Int>
 }
 
 @Dao
@@ -110,16 +154,28 @@ interface LyricsCacheDao {
     fun bytes(): Long
 }
 
-@Database(entities = [TrackEntity::class, LyricsCacheEntity::class], version = 2, exportSchema = false)
+@Database(entities = [TrackEntity::class, LyricsCacheEntity::class, ScrobbleEntity::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun tracks(): TrackDao
     abstract fun lyricsCache(): LyricsCacheDao
+    abstract fun scrobbles(): ScrobbleDao
 }
 
 val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
     override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE tracks ADD COLUMN hasCachedLyrics INTEGER NOT NULL DEFAULT 0")
         db.execSQL("ALTER TABLE tracks ADD COLUMN cacheKey TEXT NOT NULL DEFAULT ''")
+    }
+}
+
+val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
+    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS scrobble_queue (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "title TEXT NOT NULL, artist TEXT NOT NULL, album TEXT, " +
+                "durationMs INTEGER, listenedAtSec INTEGER NOT NULL)"
+        )
     }
 }
 

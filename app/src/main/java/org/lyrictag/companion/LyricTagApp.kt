@@ -13,12 +13,15 @@ class LyricTagApp : Application() {
 
     val db: AppDatabase by lazy {
         Room.databaseBuilder(this, AppDatabase::class.java, "lyrictag.db")
-            .addMigrations(org.lyrictag.companion.db.MIGRATION_1_2)
+            .addMigrations(
+                org.lyrictag.companion.db.MIGRATION_1_2,
+                org.lyrictag.companion.db.MIGRATION_2_3,
+            )
             .build()
     }
-    val lyricsRepository: LyricsRepository by lazy {
-        LyricsRepository.default(RoomLyricsCache(db.lyricsCache(), db.tracks()))
-    }
+    /** Rebuilt on each access so provider toggles apply immediately. */
+    val lyricsRepository: LyricsRepository
+        get() = LyricsRepository.forPrefs(this, RoomLyricsCache(db.lyricsCache(), db.tracks()))
     val scanner: LibraryScanner by lazy { LibraryScanner(this, db.tracks(), db.lyricsCache()) }
     val work: WorkManager by lazy { WorkManager.getInstance(this) }
 

@@ -9,18 +9,24 @@ Poweramp remains the player. LyricTag is the librarian.
 ## What it does
 
 - Responds to Poweramp's `ACTION_NEED_LYRICS` requests (plain + LRC lyrics)
-- Scans folders **you** choose (MediaStore + Storage Access Framework)
-- Finds missing lyrics via LRCLIB (only when you ask — offline-first)
-- Flags incomplete metadata (title / artist / album / track / year / genre…)
+- Matches **your actual Poweramp library** via its documented content provider
+  (after you approve read-only access inside Poweramp) — the count is real
+  because it comes from Poweramp, with whole-device scan as fallback
+- Finds missing lyrics from 5 free, keyless sources (LRCLIB, AMLL, KuGou,
+  Lyricify, LunaBeat), scored and reviewable — offline-first, only on your tap
+- Batch-fetch missing lyrics in the background (WorkManager, cancellable)
+- Looks up incomplete tags via MusicBrainz with before/after review; only
+  empty tags are ever filled
+- Scrobbles Poweramp playback to ListenBrainz / Last.fm (your own tokens;
+  offline plays queue with real timestamps)
 - Review-before-write: nothing is overwritten without your approval
 - Embeds lyrics into files where safe, or saves `.lrc` / `.txt` next to them
 
 ## What it deliberately does NOT do
 
-- It does **not** read Poweramp's private database. Poweramp exposes no public
-  API for full-library enumeration, so LyricTag scans the audio files on your
-  device directly. (This limitation is explained in-app and in
-  [docs/LIMITATIONS.md](docs/LIMITATIONS.md).)
+- It does **not** touch Poweramp's private database — it only *reads* the
+  documented public provider (`content://com.maxmpz.audioplayer.data`),
+  and only after your approval. See [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
 - No analytics, no ads, no tracking, no Google Play Services.
 
 ## Build from source

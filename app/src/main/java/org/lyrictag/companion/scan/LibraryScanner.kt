@@ -24,10 +24,36 @@ class LibraryScanner(
 
     data class Progress(val done: Int, val total: Int)
 
-    data class ScanResult(val scanned: Int, val addedOrUpdated: Int, val removed: Int)
+    data class ScanResult(val scanned: Int, val addedOrUpdated: Int, val removed: Int, val scope: String)
 
     suspend fun scan(onProgress: (Progress) -> Unit = {}): ScanResult {
-        val uris = collectAudio(onProgress)
+        val all = collectAudio(onProgress)
+        // Scope, in order of truthfulness:
+        // 1. Folders the user explicitly picked in Settings (manual override)
+        // 2. Poweramp's own library (exact file set via its documented provider)
+        // 3. Whole-device MediaStore (Poweramp absent/unreadable)
+        val sel = ScanFolders.selected(context)
+        val paFiles = if (sel.isNotEmpty()) null else withContext(Dispatchers.IO) {
+            org.lyrictag.companion.poweramp.PowerampLibrary.readFiles(context)
+        }
+        val scopeName: String
+        val uris = when {
+            sel.isNotEmpty() -> {
+                scopeName = "folders"
+                all.filter { ScanFolders.inScope(it.path, sel) }
+            }
+            paFiles != null -> {
+                scopeName = "poweramp"
+                val byPath = all.associateBy { it.path }
+                paFiles.mapNotNull { pa ->
+                    byPath[pa.absPath] ?: AudioRow(pa.absPath, 0L, pa.durationMs, null)
+                }
+            }
+            else -> {
+                scopeName = "device"
+                all
+            }
+        };
         var done = 0
         var updated = 0
         val batch = mutableListOf<TrackEntity>()
@@ -58,7 +84,7 @@ class LibraryScanner(
             tracks.markCached(full, loose)
         }
         onProgress(Progress(uris.size, uris.size))
-        return ScanResult(uris.size, updated, stale.size)
+        return ScanResult(uris.size, updated, stale.size, scopeName)
     }
 
     private data class AudioRow(val path: String, val lastMod: Long, val durationMs: Long?, val mime: String?)
@@ -95,6 +121,16 @@ class LibraryScanner(
             out
         }
 
+    /** Re-reads one file's tags into the DB (after a metadata fix). */
+    suspend fun refreshRow(path: String) = withContext(Dispatchers.IO) {
+        val existing = tracks.byPath(path) ?: return@withContext
+        readEntity(path, existing.lastModified, existing.durationMs, existing.mimeType, existing.ignored)
+            ?.copy(
+                lastModified = existing.lastModified,
+                hasCachedLyrics = existing.hasCachedLyrics,
+            )?.let { tracks.upsertAll(listOf(it)) }
+    }
+
     private fun readEntity(
         path: String, lastMod: Long, durationMs: Long?, mime: String?, ignored: Boolean,
     ): TrackEntity? {
@@ -124,6 +160,8 @@ class LibraryScanner(
 
     private fun hasSidecar(path: String): Boolean {
         val base = path.substringBeforeLast('.')
-        return File("$base.lrc").exists() || File("$base.txt").exists()
+        // Poweramp reads .lrc/.txt/.smi/.srt next to the track — mirror that.
+        return File("$base.lrc").exists() || File("$base.txt").exists() ||
+            File("$base.smi").exists() || File("$base.srt").exists()
     }
 }

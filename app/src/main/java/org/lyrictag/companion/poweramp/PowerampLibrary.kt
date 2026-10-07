@@ -1,0 +1,153 @@
+package org.lyrictag.companion.poweramp
+
+import android.content.Context
+import android.net.Uri
+import android.util.Log
+
+/**
+ * Reads Poweramp's *documented* content provider (`content://com.maxmpz.audioplayer.data/…`).
+ *
+ * This is a public, documented API — not reverse engineering. It exposes the
+ * exact folders and files Poweramp has in its library, so LyricTag can scope
+ * its scan to genuinely the same set ("39" because Poweramp says 39).
+ *
+ * All queries are wrapped: if Poweramp is absent, the provider is blocked, or
+ * columns change, we return null and the scanner falls back to MediaStore.
+ */
+object PowerampLibrary {
+
+    private const val TAG = "PowerampLibrary"
+    private const val AUTH = "content://com.maxmpz.audioplayer.data"
+
+    data class PaFile(
+        val absPath: String,
+        val title: String?,
+        val artist: String?,
+        val album: String?,
+        val year: String?,
+        val durationMs: Long?,
+        val powerampHasLyrics: Boolean,
+    )
+
+    /** Exact file set of Poweramp's library, or null when unreadable. */
+    fun readFiles(context: Context): List<PaFile>? {
+        return try {
+            val out = mutableListOf<PaFile>()
+            for (folderId in folderIds(context)) {
+                val folderPath = folderPath(context, folderId) ?: continue
+                out += filesIn(context, folderId, folderPath)
+            }
+            out.ifEmpty { null }
+        } catch (t: Throwable) {
+            Log.w(TAG, "Poweramp provider unreadable, falling back", t)
+            null
+        }
+    }
+
+    fun isAvailable(context: Context): Boolean = isReadable(context)
+
+    /** True when Poweramp is installed (regardless of provider access). */
+    fun isInstalled(context: Context): Boolean {
+        return try {
+            context.packageManager.getPackageInfo(PowerampContract.POWERAMP_PACKAGE, 0)
+            true
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    /** True only when the provider actually answers (needs Poweramp's grant on most builds). */
+    fun isReadable(context: Context): Boolean {
+        return try {
+            var rows = 0
+            context.contentResolver.query(
+                Uri.parse("$AUTH/folders"), arrayOf("_id"), null, null, null,
+            )?.use { c -> rows = c.count }
+            rows > 0
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    /**
+     * Opens Poweramp's data-access grant screen. After the user approves,
+     * the next scan reads the exact Poweramp library.
+     */
+    fun requestAccess(context: Context) {
+        try {
+            val intent = android.content.Intent(PowerampContract.ACTION_ASK_FOR_DATA_PERMISSION).apply {
+                component = android.content.ComponentName(PowerampContract.POWERAMP_PACKAGE, PowerampContract.POWERAMP_API_RECEIVER)
+                putExtra(PowerampContract.EXTRA_PACKAGE_NAME, context.packageName)
+            }
+            context.sendBroadcast(intent)
+        } catch (t: Throwable) {
+            Log.w(TAG, "ask-for-data failed", t)
+        }
+    }
+
+    private fun folderIds(context: Context): List<Long> {
+        val ids = mutableListOf<Long>()
+        context.contentResolver.query(
+            Uri.parse("$AUTH/folders"), arrayOf("_id"), null, null, null,
+        )?.use { c ->
+            val i = c.getColumnIndex("_id")
+            while (c.moveToNext()) ids += c.getLong(i)
+        }
+        return ids
+    }
+
+    /** "primary/Music/" -> "/storage/emulated/0/Music/" */
+    private fun folderPath(context: Context, folderId: Long): String? {
+        context.contentResolver.query(
+            Uri.parse("$AUTH/folders/$folderId"), arrayOf("path"), null, null, null,
+        )?.use { c ->
+            if (c.moveToFirst()) {
+                val p = c.getString(c.getColumnIndex("path")) ?: return null
+                return when {
+                    p.startsWith("primary/") ->
+                        "/storage/emulated/0/" + p.removePrefix("primary/")
+                    Regex("^[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}/").containsMatchIn(p) ->
+                        "/storage/$p"
+                    else -> null
+                }
+            }
+        }
+        return null
+    }
+
+    private fun filesIn(context: Context, folderId: Long, folderPath: String): List<PaFile> {
+        val out = mutableListOf<PaFile>()
+        context.contentResolver.query(
+            Uri.parse("$AUTH/folders/$folderId/files"), null, null, null, null,
+        )?.use { c ->
+            val iName = c.getColumnIndex("name")
+            val iTitle = c.getColumnIndex("title_tag")
+            val iArtist = c.getColumnIndex("artist")
+            val iAlbum = c.getColumnIndex("album")
+            val iYear = c.getColumnIndex("year")
+            val iDur = c.getColumnIndex("duration")
+            val iLyr = c.getColumnIndex("has_lyrics_tag")
+            while (c.moveToNext()) {
+                val name = if (iName >= 0) c.getString(iName) else null ?: continue
+                if (!isAudio(name)) continue
+                out += PaFile(
+                    absPath = folderPath + name,
+                    title = iTitle.takeIf { it >= 0 }?.let { c.getString(it) },
+                    artist = iArtist.takeIf { it >= 0 }?.let { c.getString(it) },
+                    album = iAlbum.takeIf { it >= 0 }?.let { c.getString(it) },
+                    year = iYear.takeIf { it >= 0 }?.let {
+                        c.getInt(it).takeIf { y -> y > 0 }?.toString()
+                    },
+                    durationMs = iDur.takeIf { it >= 0 }?.let { c.getLong(it) },
+                    powerampHasLyrics = iLyr >= 0 && c.getInt(iLyr) != 0,
+                )
+            }
+        }
+        return out
+    }
+
+    private fun isAudio(name: String): Boolean =
+        name.endsWith(".mp3", true) || name.endsWith(".flac", true) ||
+            name.endsWith(".m4a", true) || name.endsWith(".ogg", true) ||
+            name.endsWith(".opus", true) || name.endsWith(".mp4", true)
+}

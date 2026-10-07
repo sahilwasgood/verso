@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit
  * returns best text (synced preferred) for Poweramp.
  */
 class LyricsRepository(
-    private val providers: List<LyricsProvider>,
+    val providers: List<LyricsProvider>,
     private val cache: LyricsCache,
 ) {
     /** Poweramp path: cache first (normalized key), else providers. */
@@ -51,6 +51,19 @@ class LyricsRepository(
         const val BASE_URL = "https://lrclib.net/"
         const val USER_AGENT = "LyricTag/0.1.0 (https://github.com/lyrictag/lyrictag)"
 
+        /** Registry of all built-in providers (order = lookup priority). */
+        val ALL_PROVIDERS = listOf("LRCLIB", "AMLL", "KuGou", "Lyricify", "LunaBeat")
+
+        /** User-enabled subset (all on by default). */
+        fun enabledNames(context: android.content.Context): Set<String> =
+            context.getSharedPreferences("lyrictag", android.content.Context.MODE_PRIVATE)
+                .getStringSet("lyric_providers", null) ?: ALL_PROVIDERS.toSet()
+
+        fun setEnabled(context: android.content.Context, names: Set<String>) {
+            context.getSharedPreferences("lyrictag", android.content.Context.MODE_PRIVATE)
+                .edit().putStringSet("lyric_providers", names.toSet()).apply()
+        }
+
         fun default(cache: LyricsCache): LyricsRepository {
             val json = Json { ignoreUnknownKeys = true }
             val client = OkHttpClient.Builder()
@@ -70,7 +83,36 @@ class LyricsRepository(
                 .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
                 .build()
                 .create(LrcLibApi::class.java)
-            return LyricsRepository(listOf(LrclibProvider(api)), cache)
+            // NOTE: provider enable/disable is applied per-fetch in LyricTagApp,
+            // which rebuilds this list from enabledNames(). Order = priority.
+            return LyricsRepository(
+                listOf(
+                    LrclibProvider(api),
+                    AmllProvider(client),
+                    KugouProvider(client),
+                    LyricifyProvider(client),
+                    LunaBeatProvider(client),
+                ),
+                cache,
+            )
+        }
+
+        /** Repository honoring the user's enabled-provider set + order. */
+        fun forPrefs(context: android.content.Context, cache: LyricsCache): LyricsRepository {
+            val all = default(cache).providers
+            val enabled = enabledNames(context)
+            val ordered = ALL_PROVIDERS.filter { it in enabled }
+                .mapNotNull { name -> all.firstOrNull { providerName(it) == name } }
+            return LyricsRepository(ordered.ifEmpty { all }, cache)
+        }
+
+        private fun providerName(p: LyricsProvider): String = when (p) {
+            is LrclibProvider -> "LRCLIB"
+            is AmllProvider -> "AMLL"
+            is KugouProvider -> "KuGou"
+            is LyricifyProvider -> "Lyricify"
+            is LunaBeatProvider -> "LunaBeat"
+            else -> p.javaClass.simpleName
         }
     }
 }

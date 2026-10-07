@@ -21,12 +21,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import org.lyrictag.companion.db.TrackDao
 import org.lyrictag.companion.scan.LibraryScanner
+import org.lyrictag.companion.work.LyricsBatchWorker
 
 data class DashboardState(
     val total: Int = 0,
@@ -35,16 +37,33 @@ data class DashboardState(
     val scanning: Boolean = false,
     val scanProgress: String? = null,
     val lastResult: String? = null,
+    /** Poweramp installed but its library unreadable -> offer the grant flow. */
+    val showPowerampConnect: Boolean = false,
 )
 
 class DashboardViewModel(
     private val dao: TrackDao,
     private val scanner: LibraryScanner,
+    private val app: android.content.Context,
 ) : ViewModel() {
     private val _state = MutableStateFlow(DashboardState())
     val state: StateFlow<DashboardState> = _state
 
+    private val _batch = MutableStateFlow<androidx.work.WorkInfo?>(null)
+    val batch: StateFlow<androidx.work.WorkInfo?> = _batch
+
+    private val batchLive = androidx.work.WorkManager.getInstance(app)
+        .getWorkInfosForUniqueWorkLiveData(org.lyrictag.companion.work.LyricsBatchWorker.UNIQUE)
+    private val batchObserver = androidx.lifecycle.Observer<List<androidx.work.WorkInfo>> { list ->
+        _batch.value = list.firstOrNull {
+            it.state == androidx.work.WorkInfo.State.RUNNING ||
+                it.state == androidx.work.WorkInfo.State.ENQUEUED
+        }
+    }
+
     init {
+        batchLive.observeForever(batchObserver)
+        refreshPowerampHint()
         viewModelScope.launch {
             dao.observeCount().collect { total ->
                 _state.value = _state.value.copy(total = total)
@@ -62,10 +81,22 @@ class DashboardViewModel(
         }
     }
 
+    private fun refreshPowerampHint() {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val show = org.lyrictag.companion.poweramp.PowerampLibrary.isInstalled(app) &&
+                !org.lyrictag.companion.poweramp.PowerampLibrary.isReadable(app)
+            _state.value = _state.value.copy(showPowerampConnect = show)
+        }
+    }
+
+    override fun onCleared() {
+        batchLive.removeObserver(batchObserver)
+        super.onCleared()
+    }
+
     fun scan() {
         if (_state.value.scanning) return
-        viewModelScope.launch {
-            _state.value = _state.value.copy(scanning = true, scanProgress = null, lastResult = null)
+        viewModelScope.launch {            _state.value = _state.value.copy(scanning = true, scanProgress = null, lastResult = null)
             val summary = try {
                 var last = ""
                 val r = scanner.scan { p ->
@@ -74,6 +105,11 @@ class DashboardViewModel(
                 }
                 buildString {
                     append("Scan complete: ${r.scanned} tracks")
+                    append(when (r.scope) {
+                        "poweramp" -> " (your Poweramp library)"
+                        "folders" -> " (selected folders)"
+                        else -> " (whole device)"
+                    })
                     if (r.removed > 0) append(", ${r.removed} removed")
                     if (r.addedOrUpdated > 0) append(", ${r.addedOrUpdated} updated")
                 }
@@ -83,6 +119,7 @@ class DashboardViewModel(
                 // Counts refresh automatically via the observed flows.
             }
             _state.value = _state.value.copy(scanning = false, scanProgress = null, lastResult = summary)
+            refreshPowerampHint()
         }
     }
 }
@@ -94,6 +131,16 @@ fun DashboardScreen(
     onSettings: () -> Unit,
 ) {
     val s by vm.state.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val batch by vm.batch.collectAsState()
+    val prog = batch?.progress
+    val batchText = when {
+        batch == null -> null
+        prog != null && prog.getInt(LyricsBatchWorker.KEY_TOTAL, 0) > 0 ->
+            "Fetching lyrics ${prog.getInt(LyricsBatchWorker.KEY_DONE, 0)} / " +
+                "${prog.getInt(LyricsBatchWorker.KEY_TOTAL, 0)}"
+        else -> "Fetching lyrics…"
+    }
     Column(
         Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -129,6 +176,37 @@ fun DashboardScreen(
         }
         Button(onClick = { vm.scan() }, enabled = !s.scanning, modifier = Modifier.fillMaxWidth()) {
             Text(if (s.scanning) "Scanning…" else "Fix Library")
+        }
+        if (s.showPowerampConnect && !s.scanning) {
+            OutlinedButton(
+                onClick = {
+                    org.lyrictag.companion.poweramp.PowerampLibrary.requestAccess(context)
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Match my Poweramp library")
+            }
+            Text(
+                "Poweramp is installed but hasn't shared its library yet. Tapping asks " +
+                    "for read-only access inside Poweramp — approve it there, then tap Fix Library.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (batch != null) {
+            OutlinedButton(
+                onClick = { LyricsBatchWorker.cancel(context) },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(batchText ?: "Fetching lyrics… (tap to cancel)")
+            }
+        } else if (s.missingLyrics > 0) {
+            OutlinedButton(
+                onClick = { LyricsBatchWorker.enqueue(context) },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Fetch missing lyrics (${s.missingLyrics})")
+            }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
             OutlinedButton(onClick = onBrowse, modifier = Modifier.weight(1f)) { Text("Browse Library") }
