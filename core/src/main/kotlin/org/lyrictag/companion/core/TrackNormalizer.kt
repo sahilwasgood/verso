@@ -33,4 +33,22 @@ object TrackNormalizer {
     /** Normalized cache key: stable across minor tag edits. */
     fun cacheKey(title: String?, artist: String?, album: String?): String =
         listOf(normalize(title), normalize(artist), normalize(album)).joinToString("|")
+
+    private val ARTIST_SPLIT = Regex(
+        """\s*(?:[,;/×]|&|\+|\bfeat\.?|\bft\.?|\bfeaturing|\bwith\b)\s*""",
+        RegexOption.IGNORE_CASE
+    )
+
+    /**
+     * First artist of a multi-artist tag for provider *queries*.
+     * Poweramp tags often list 4+ artists ("A, B, C") which no lyrics API
+     * matches; scoring/display still use the full string.
+     */
+    fun primaryArtist(raw: String?): String {
+        if (raw.isNullOrBlank()) return ""
+        // Underscore-joined filenames ("A, B _C, D") behave like commas.
+        val cleaned = raw.replace('_', ',')
+        return cleaned.split(ARTIST_SPLIT).map { it.trim() }
+            .firstOrNull { it.isNotEmpty() }.orEmpty()
+    }
 }

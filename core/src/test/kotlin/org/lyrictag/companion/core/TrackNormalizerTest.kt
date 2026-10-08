@@ -28,4 +28,15 @@ class TrackNormalizerTest {
             TrackNormalizer.cacheKey("song", "artist", "album")
         )
     }
+    @Test fun `primary artist first of many`() {
+        assertEquals(
+            "Jubin Nautiyal",
+            TrackNormalizer.primaryArtist("Jubin Nautiyal, Tanishk Bagchi, Nusrat Fateh Ali Khan, Emraan Hashmi")
+        )
+        assertEquals("Arijit Singh", TrackNormalizer.primaryArtist("Arijit Singh & Mithoon"))
+        assertEquals("Lah Pat", TrackNormalizer.primaryArtist("Lah Pat"))
+        assertEquals("Girish Kumar", TrackNormalizer.primaryArtist("Girish Kumar, Shruti Haasan _Atif Aslam, Shreya Ghoshal"))
+        assertEquals("", TrackNormalizer.primaryArtist(null))
+        assertEquals("", TrackNormalizer.primaryArtist("   "))
+    }
 }

@@ -36,13 +36,18 @@ class LyricsRepository(
     suspend fun search(
         title: String, artist: String, album: String, durationMs: Long,
     ): List<ScoredLyrics> {
+        // Query with the primary artist only: multi-artist tags
+        // ("A, B, C, D") match nothing on any lyrics API.
+        // Scoring/display keep the full strings.
+        val qArtist = org.lyrictag.companion.core.TrackNormalizer.primaryArtist(artist)
+            .ifEmpty { artist }
         // Fan out to all providers in parallel (bounded by the caller's
         // dispatcher); failures are isolated per provider.
         val all = supervisorScope {
             providers.map { p ->
                 async(kotlinx.coroutines.Dispatchers.IO) {
                     try {
-                        p.fetch(title, artist, album, durationMs.toInt())
+                        p.fetch(title, qArtist, album, durationMs.toInt())
                     } catch (_: Exception) {
                         emptyList()
                     }
