@@ -70,11 +70,14 @@ class LyricsRepository(
                 .connectTimeout(10, TimeUnit.SECONDS)
                 .readTimeout(20, TimeUnit.SECONDS)
                 .addInterceptor { chain ->
-                    chain.proceed(
-                        chain.request().newBuilder()
-                            .header("User-Agent", USER_AGENT) // required by LRCLIB
-                            .build()
-                    )
+                    val req = chain.request()
+                    // Only stamp our UA when the provider didn't set its own
+                    // (Lyricify needs a browser UA; LRCLIB requires ours).
+                    if (req.header("User-Agent") == null) {
+                        chain.proceed(
+                            req.newBuilder().header("User-Agent", USER_AGENT).build()
+                        )
+                    } else chain.proceed(req)
                 }
                 .build()
             val api = Retrofit.Builder()

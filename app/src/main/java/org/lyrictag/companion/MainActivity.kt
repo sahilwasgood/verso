@@ -81,9 +81,7 @@ class MainActivity : ComponentActivity() {
                                 val vm: DashboardViewModel = viewModel {
                                     DashboardViewModel(app.db.tracks(), app.scanner, app)
                                 }
-                                DashboardScreen(vm,
-                                    onBrowse = { nav.navigate("library") },
-                                    onSettings = { nav.navigate("settings") })
+                                DashboardScreen(vm)
                             }
                             composable("library") {
                                 val vm: LibraryViewModel = viewModel {

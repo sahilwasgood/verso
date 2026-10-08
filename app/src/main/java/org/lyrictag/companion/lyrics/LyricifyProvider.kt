@@ -2,11 +2,16 @@ package org.lyrictag.companion.lyrics
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import org.json.JSONObject
 import org.lyrictag.companion.core.LrcParser
 import org.lyrictag.companion.core.LyricifyLines
 import java.util.Locale
@@ -26,9 +31,8 @@ class LyricifyProvider(
         if (title.isBlank() || artist.isBlank()) return@withContext emptyList()
         try {
             val isrc = resolveIsrc(title, artist) ?: return@withContext emptyList()
-            val b64 = android.util.Base64.encodeToString(
-                isrc.toByteArray(Charsets.UTF_8), android.util.Base64.NO_WRAP,
-            )
+            val b64 = java.util.Base64.getEncoder()
+                .encodeToString(isrc.toByteArray(Charsets.UTF_8))
             val url = "https://api.lyricify.app/lyrics/get/mobile/new" +
                 "?username=${randomName()}&isrc=${ProviderHttp.enc(b64)}"
             val req = Request.Builder().url(url)
@@ -38,10 +42,15 @@ class LyricifyProvider(
             client.newCall(req).execute().use { resp ->
                 if (!resp.isSuccessful) return@withContext emptyList()
                 val root = runCatching {
-                    JSONObject(resp.body?.string().orEmpty())
+                    kotlinx.serialization.json.Json.parseToJsonElement(
+                        resp.body?.string().orEmpty()
+                    ).jsonObject
                 }.getOrNull() ?: return@withContext emptyList()
-                if (root.optBoolean("isInstrumental", false)) return@withContext emptyList()
-                val text = root.optString("text").ifEmpty { return@withContext emptyList() }
+                if (root["isInstrumental"]?.jsonPrimitive?.booleanOrNull == true) {
+                    return@withContext emptyList()
+                }
+                val text = root["text"]?.jsonPrimitive?.contentOrNull
+                    ?.takeIf { it.isNotBlank() } ?: return@withContext emptyList()
                 val lines = if ("[from:AppleSyllable]" in text) {
                     // Syllable-level format: fall back to plain lines of the same text.
                     LyricifyLines.parse(text.lines().drop(1).joinToString("\n"))
@@ -51,7 +60,7 @@ class LyricifyProvider(
                     if (parsed.isEmpty()) return@withContext emptyList()
                     parsed
                 }
-                val writer = root.optString("writer").ifEmpty { null }
+                val writer = root["writer"]?.jsonPrimitive?.contentOrNull?.ifEmpty { null }
                 val lrc = buildString {
                     writer?.let { appendLine("[by:$it]") }
                     append(LrcParser.serialize(lines))
@@ -71,8 +80,10 @@ class LyricifyProvider(
     }
 
     private fun resolveIsrc(title: String, artist: String): String? {
-        val body = JSONObject().put("name", title).put("artist", artist).toString()
-            .toRequestBody("application/json".toMediaType())
+        val body = buildJsonObject {
+            put("name", title)
+            put("artist", artist)
+        }.toString().toRequestBody("application/json".toMediaType())
         val req = Request.Builder()
             .url("https://api.credits.fm/v1/resolve/track")
             .post(body)
@@ -82,14 +93,17 @@ class LyricifyProvider(
         client.newCall(req).execute().use { resp ->
             if (!resp.isSuccessful) return null
             return runCatching {
-                JSONObject(resp.body?.string().orEmpty()).optString("isrc").ifEmpty { null }
+                kotlinx.serialization.json.Json.parseToJsonElement(
+                    resp.body?.string().orEmpty()
+                ).jsonObject["isrc"]?.jsonPrimitive?.contentOrNull?.ifEmpty { null }
             }.getOrNull()
         }
     }
 
     private fun randomName(): String {
         val r = java.util.Random()
-        return (0 until (5 + r.nextInt(8))).map { 'a' + r.nextInt(26) }
+        val abc = "abcdefghijklmnopqrstuvwxyz"
+        return (0 until (5 + r.nextInt(8))).map { abc[r.nextInt(26)] }
             .joinToString("").lowercase(Locale.ROOT)
     }
 

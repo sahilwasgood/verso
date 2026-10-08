@@ -2,9 +2,12 @@ package org.lyrictag.companion.lyrics
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import org.json.JSONArray
 import org.lyrictag.companion.core.LrcParser
 import org.lyrictag.companion.core.TrackNormalizer
 import org.lyrictag.companion.core.TtmlConverter
@@ -64,26 +67,28 @@ class LunaBeatProvider(
     private fun ensureIndex(): List<Song>? {
         val man = ProviderHttp.get(client, "$BASE/api/v1/manifest.json", LyricsRepository.USER_AGENT)
             ?: return index.ifEmpty { null }
-        val rev = man.optString("revision").ifEmpty { return index.ifEmpty { null } }
+        val rev = man["revision"]?.jsonPrimitive?.contentOrNull
+            ?: return index.ifEmpty { null }
         if (rev == revision && index.isNotEmpty()) return index
-        val idx = man.optString("index", "songs.json")
+        val idx = man["index"]?.jsonPrimitive?.contentOrNull?.ifEmpty { null } ?: "songs.json"
         val req = Request.Builder().url("$BASE/api/v1/$idx")
             .header("User-Agent", LyricsRepository.USER_AGENT).build()
         client.newCall(req).execute().use { resp ->
             if (!resp.isSuccessful) return index.ifEmpty { null }
-            val songs: JSONArray = runCatching {
-                org.json.JSONObject(resp.body?.string().orEmpty()).optJSONArray("songs")
+            val songs = runCatching {
+                kotlinx.serialization.json.Json.parseToJsonElement(
+                    resp.body?.string().orEmpty()
+                ).jsonObject["songs"]?.jsonArray
             }.getOrNull() ?: return index.ifEmpty { null }
             val list = mutableListOf<Song>()
-            for (i in 0 until songs.length()) {
-                val o = songs.optJSONObject(i) ?: continue
-                val t = o.optString("title")
-                if (t.isEmpty()) continue
-                val p = o.optString("path")
-                if (p.isEmpty()) continue
-                val arts = mutableListOf<String>()
-                val arr = o.optJSONArray("artists")
-                if (arr != null) for (a in 0 until arr.length()) arts += arr.optString(a)
+            for (el in songs) {
+                val o = el.jsonObject
+                val t = o["title"]?.jsonPrimitive?.contentOrNull
+                if (t.isNullOrEmpty()) continue
+                val p = o["path"]?.jsonPrimitive?.contentOrNull
+                if (p.isNullOrEmpty()) continue
+                val arts = o["artists"]?.jsonArray
+                    ?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty()
                 list += Song(t, arts, p)
             }
             index = list

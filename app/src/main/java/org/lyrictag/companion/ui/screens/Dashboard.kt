@@ -15,6 +15,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -25,6 +26,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.lyrictag.companion.db.TrackDao
 import org.lyrictag.companion.scan.LibraryScanner
@@ -66,26 +68,28 @@ class DashboardViewModel(
         refreshPowerampHint()
         viewModelScope.launch {
             dao.observeCount().collect { total ->
-                _state.value = _state.value.copy(total = total)
+                _state.update { it.copy(total = total) }
             }
         }
         viewModelScope.launch {
             dao.observeMissingLyrics().collect { missing ->
-                _state.value = _state.value.copy(missingLyrics = missing)
+                _state.update { it.copy(missingLyrics = missing) }
             }
         }
         viewModelScope.launch {
             dao.observeWithLyrics().collect { with ->
-                _state.value = _state.value.copy(withLyrics = with)
+                _state.update { it.copy(withLyrics = with) }
             }
         }
     }
 
     private fun refreshPowerampHint() {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            val show = org.lyrictag.companion.poweramp.PowerampLibrary.isInstalled(app) &&
-                !org.lyrictag.companion.poweramp.PowerampLibrary.isReadable(app)
-            _state.value = _state.value.copy(showPowerampConnect = show)
+            // Gate only on readability: getPackageInfo visibility is unreliable
+            // across OEM builds, while a failed provider read is definitive.
+            // Tapping the button with no Poweramp installed is a harmless no-op.
+            val show = !org.lyrictag.companion.poweramp.PowerampLibrary.isReadable(app)
+            _state.update { it.copy(showPowerampConnect = show) }
         }
     }
 
@@ -96,12 +100,12 @@ class DashboardViewModel(
 
     fun scan() {
         if (_state.value.scanning) return
-        viewModelScope.launch {            _state.value = _state.value.copy(scanning = true, scanProgress = null, lastResult = null)
+        viewModelScope.launch {            _state.update { it.copy(scanning = true, scanProgress = null, lastResult = null) }
             val summary = try {
                 var last = ""
                 val r = scanner.scan { p ->
                     last = "${p.done} / ${p.total}"
-                    _state.value = _state.value.copy(scanProgress = last)
+                    _state.update { it.copy(scanProgress = last) }
                 }
                 buildString {
                     append("Scan complete: ${r.scanned} tracks")
@@ -112,24 +116,31 @@ class DashboardViewModel(
                     })
                     if (r.removed > 0) append(", ${r.removed} removed")
                     if (r.addedOrUpdated > 0) append(", ${r.addedOrUpdated} updated")
+                }.let { base ->
+                    // When we fell back to device scan despite Poweramp being
+                    // around, say exactly why (diagnosis, not a guess).
+                    if (r.scope == "device") {
+                        val diag = try {
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                org.lyrictag.companion.poweramp.PowerampLibrary.diagnose(app)
+                            }
+                        } catch (_: Throwable) { "diagnosis failed" }
+                        "$base\nPoweramp library: $diag"
+                    } else base
                 }
             } catch (t: Throwable) {
                 "Scan failed: ${t.message?.take(100) ?: "unknown error"}"
             } finally {
                 // Counts refresh automatically via the observed flows.
             }
-            _state.value = _state.value.copy(scanning = false, scanProgress = null, lastResult = summary)
+            _state.update { it.copy(scanning = false, scanProgress = null, lastResult = summary) }
             refreshPowerampHint()
         }
     }
 }
 
 @Composable
-fun DashboardScreen(
-    vm: DashboardViewModel,
-    onBrowse: () -> Unit,
-    onSettings: () -> Unit,
-) {
+fun DashboardScreen(vm: DashboardViewModel) {
     val s by vm.state.collectAsState()
     val context = androidx.compose.ui.platform.LocalContext.current
     val batch by vm.batch.collectAsState()
@@ -177,22 +188,6 @@ fun DashboardScreen(
         Button(onClick = { vm.scan() }, enabled = !s.scanning, modifier = Modifier.fillMaxWidth()) {
             Text(if (s.scanning) "Scanning…" else "Fix Library")
         }
-        if (s.showPowerampConnect && !s.scanning) {
-            OutlinedButton(
-                onClick = {
-                    org.lyrictag.companion.poweramp.PowerampLibrary.requestAccess(context)
-                },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Match my Poweramp library")
-            }
-            Text(
-                "Poweramp is installed but hasn't shared its library yet. Tapping asks " +
-                    "for read-only access inside Poweramp — approve it there, then tap Fix Library.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
         if (batch != null) {
             OutlinedButton(
                 onClick = { LyricsBatchWorker.cancel(context) },
@@ -208,9 +203,21 @@ fun DashboardScreen(
                 Text("Fetch missing lyrics (${s.missingLyrics})")
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-            OutlinedButton(onClick = onBrowse, modifier = Modifier.weight(1f)) { Text("Browse Library") }
-            OutlinedButton(onClick = onSettings, modifier = Modifier.weight(1f)) { Text("Settings") }
+        if (s.showPowerampConnect && !s.scanning) {
+            TextButton(
+                onClick = {
+                    org.lyrictag.companion.poweramp.PowerampLibrary.requestAccess(context)
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Match my Poweramp library")
+            }
+            Text(
+                "If Poweramp is installed, tapping asks for read-only access to its " +
+                    "library — approve it inside Poweramp, then tap Fix Library.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

@@ -13,8 +13,9 @@ import org.w3c.dom.Node
  */
 object TtmlConverter {
 
-    private val CLOCK = Regex("""^(\d+):(\d{2}):(\d{2})(?:[.:](\d{1,3}))?$""")
+    private val CLOCK = Regex("""^(?:(\d+):)?(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?$""")
     private val MS = Regex("""^(\d+(?:\.\d+)?)ms$""")
+    private val SEC = Regex("""^(\d+(?:\.\d+)?)$""")
     private val SKIP_ROLES = setOf("x-translation", "translation", "x-roman", "romanization", "x-background")
 
     fun ttmlToLrcLines(ttml: String?): List<LrcLine> {
@@ -59,13 +60,13 @@ object TtmlConverter {
         return sb.toString().replace(Regex("\\s+"), " ")
     }
 
-    /** "HH:MM:SS.mmm" or "1234ms" -> ms. Null when unparseable. */
+    /** "HH:MM:SS.mmm", "1234ms", or bare seconds ("2.684") -> ms. Null when unparseable. */
     fun parseTime(raw: String?): Long? {
         if (raw.isNullOrBlank()) return null
         val s = raw.trim()
-        MS.matchEntire(s)?.let { return it.groupValues[1].toDouble().toLong() }
+        MS.matchEntire(s)?.let { return (it.groupValues[1].toDouble() ).toLong() }
         CLOCK.matchEntire(s)?.let { m ->
-            val h = m.groupValues[1].toLong()
+            val h = m.groupValues[1].ifEmpty { "0" }.toLong()
             val min = m.groupValues[2].toLong()
             val sec = m.groupValues[3].toLong()
             val frac = m.groupValues[4]
@@ -77,6 +78,8 @@ object TtmlConverter {
             }
             return h * 3_600_000 + min * 60_000 + sec * 1_000 + ms
         }
+        // Bare seconds (AMLL / Apple TTML style: begin="2.684").
+        SEC.matchEntire(s)?.let { return (it.groupValues[1].toDouble() * 1000).toLong() }
         return null
     }
 }

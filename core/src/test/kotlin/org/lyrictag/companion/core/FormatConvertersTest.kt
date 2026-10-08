@@ -29,10 +29,24 @@ class TtmlConverterTest {
     }
     @Test fun `parseTime units`() {
         assertEquals(3723456L, TtmlConverter.parseTime("01:02:03.456"))
+        assertEquals(14164L, TtmlConverter.parseTime("0:14.164"))
+        assertEquals(154000L, TtmlConverter.parseTime("2:34"))
         assertEquals(2690L, TtmlConverter.parseTime("00:00:02.69"))
         assertEquals(2692L, TtmlConverter.parseTime("2692ms"))
+        assertEquals(2684L, TtmlConverter.parseTime("2.684"))
+        assertEquals(6000L, TtmlConverter.parseTime("6"))
         assertNull(TtmlConverter.parseTime("soon"))
         assertNull(TtmlConverter.parseTime(null))
+    }
+    @Test fun `parses bare-seconds AMLL style`() {
+        val ttml = """<tt xmlns="http://www.w3.org/ns/ttml"><body><div>""" +
+            """<p begin="2.684" end="4.689">Oh, whoa</p>""" +
+            """<p begin="6.373" end="8.291">Second</p>""" +
+            """</div></body></tt>"""
+        val lines = TtmlConverter.ttmlToLrcLines(ttml)
+        assertEquals(2, lines.size)
+        assertEquals(2684L, lines[0].timeMs)
+        assertEquals("Second", lines[1].text)
     }
 }
 

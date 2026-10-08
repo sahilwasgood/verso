@@ -44,6 +44,23 @@ object PowerampLibrary {
         }
     }
 
+    /** One-line diagnosis for the dashboard ("why not Poweramp scope"). */
+    fun diagnose(context: Context): String {
+        return try {
+            val ids = folderIds(context)
+            if (ids.isEmpty()) return "provider answered, 0 folders"
+            val paths = ids.mapNotNull { folderPath(context, it) }
+            if (paths.isEmpty()) return "${ids.size} folders, paths unreadable"
+            val n = paths.sumOf { p ->
+                val id = ids[paths.indexOf(p)]
+                filesIn(context, id, p).size
+            }
+            "provider ok ($n files)"
+        } catch (t: Throwable) {
+            "${t.javaClass.simpleName}: ${t.message?.take(80)}"
+        }
+    }
+
     fun isAvailable(context: Context): Boolean = isReadable(context)
 
     /** True when Poweramp is installed (regardless of provider access). */
@@ -56,12 +73,16 @@ object PowerampLibrary {
         }
     }
 
-    /** True only when the provider actually answers (needs Poweramp's grant on most builds). */
+    /** True only when file listings answer (the folders table alone is not
+     * enough — Poweramp gates folders/#/files behind its data-access grant). */
     fun isReadable(context: Context): Boolean {
         return try {
+            val ids = folderIds(context)
+            if (ids.isEmpty()) return false
             var rows = 0
             context.contentResolver.query(
-                Uri.parse("$AUTH/folders"), arrayOf("_id"), null, null, null,
+                Uri.parse("$AUTH/folders/${ids.first()}/files"),
+                arrayOf("_id"), null, null, null,
             )?.use { c -> rows = c.count }
             rows > 0
         } catch (_: Throwable) {

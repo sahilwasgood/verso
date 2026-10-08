@@ -1,5 +1,6 @@
 package org.lyrictag.companion.ui.screens
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -216,11 +217,14 @@ fun TrackDetailScreen(path: String, vm: DetailViewModel, track: org.lyrictag.com
             style = MaterialTheme.typography.bodySmall,
         )
         HorizontalDivider(Modifier.padding(vertical = 12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { vm.load(path) }) { Text("Fetch lyrics") }
-            OutlinedButton(onClick = { vm.fetchMetadata(path) }) { Text("Fetch metadata") }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()),
+        ) {
+            OutlinedButton(onClick = { vm.load(path) }) { Text("Fetch lyrics", maxLines = 1) }
+            OutlinedButton(onClick = { vm.fetchMetadata(path) }) { Text("Fetch metadata", maxLines = 1) }
             OutlinedButton(onClick = { notice = "Track ignored. It is hidden from counts and lists."; vm.setIgnored(path, true) }) {
-                Text("Ignore track")
+                Text("Ignore track", maxLines = 1)
             }
         }
         HorizontalDivider(Modifier.padding(vertical = 12.dp))
