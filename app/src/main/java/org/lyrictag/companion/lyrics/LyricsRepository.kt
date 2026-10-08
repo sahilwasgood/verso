@@ -1,6 +1,9 @@
 package org.lyrictag.companion.lyrics
 
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.supervisorScope
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -33,10 +36,18 @@ class LyricsRepository(
     suspend fun search(
         title: String, artist: String, album: String, durationMs: Long,
     ): List<ScoredLyrics> {
-        val all = mutableListOf<LyricsResult>()
-        for (p in providers) {
-            try { all += p.fetch(title, artist, album, durationMs.toInt()) }
-            catch (_: Exception) { /* provider failure: next provider */ }
+        // Fan out to all providers in parallel (bounded by the caller's
+        // dispatcher); failures are isolated per provider.
+        val all = supervisorScope {
+            providers.map { p ->
+                async(kotlinx.coroutines.Dispatchers.IO) {
+                    try {
+                        p.fetch(title, artist, album, durationMs.toInt())
+                    } catch (_: Exception) {
+                        emptyList()
+                    }
+                }
+            }.awaitAll().flatten()
         }
         return all.map { r ->
             val s = TrackMatcher.score(

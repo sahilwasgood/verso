@@ -74,7 +74,10 @@ object PowerampLibrary {
     }
 
     /** True only when file listings answer (the folders table alone is not
-     * enough — Poweramp gates folders/#/files behind its data-access grant). */
+     * enough — Poweramp gates folders/#/files behind its data-access grant).
+     * NOTE: projections must be table-qualified — the provider joins
+     * folder_files/albums/artists, so bare `_id`/`name` throw
+     * "ambiguous column" SQLiteException (official TableDefs qualifies them). */
     fun isReadable(context: Context): Boolean {
         return try {
             val ids = folderIds(context)
@@ -82,7 +85,7 @@ object PowerampLibrary {
             var rows = 0
             context.contentResolver.query(
                 Uri.parse("$AUTH/folders/${ids.first()}/files"),
-                arrayOf("_id"), null, null, null,
+                arrayOf("folder_files._id"), null, null, null,
             )?.use { c -> rows = c.count }
             rows > 0
         } catch (_: Throwable) {
@@ -93,16 +96,42 @@ object PowerampLibrary {
     /**
      * Opens Poweramp's data-access grant screen. After the user approves,
      * the next scan reads the exact Poweramp library.
+     *
+     * A broadcast alone can't open UI, so this goes to Poweramp's API
+     * Activity first (the documented alternate target); falls back to the
+     * receiver broadcast on older builds.
      */
     fun requestAccess(context: Context) {
-        try {
+        val viaActivity = try {
             val intent = android.content.Intent(PowerampContract.ACTION_ASK_FOR_DATA_PERMISSION).apply {
-                component = android.content.ComponentName(PowerampContract.POWERAMP_PACKAGE, PowerampContract.POWERAMP_API_RECEIVER)
+                component = android.content.ComponentName(
+                    PowerampContract.POWERAMP_PACKAGE,
+                    PowerampContract.POWERAMP_API_ACTIVITY,
+                )
                 putExtra(PowerampContract.EXTRA_PACKAGE_NAME, context.packageName)
+                putExtra(PowerampContract.EXTRA_PACKAGE, context.packageName)
+                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            context.sendBroadcast(intent)
+            context.startActivity(intent)
+            true
         } catch (t: Throwable) {
-            Log.w(TAG, "ask-for-data failed", t)
+            Log.w(TAG, "ask-for-data via activity failed, trying broadcast", t)
+            false
+        }
+        if (!viaActivity) {
+            try {
+                val intent = android.content.Intent(PowerampContract.ACTION_ASK_FOR_DATA_PERMISSION).apply {
+                    component = android.content.ComponentName(
+                        PowerampContract.POWERAMP_PACKAGE,
+                        PowerampContract.POWERAMP_API_RECEIVER,
+                    )
+                    putExtra(PowerampContract.EXTRA_PACKAGE_NAME, context.packageName)
+                putExtra(PowerampContract.EXTRA_PACKAGE, context.packageName)
+                }
+                context.sendBroadcast(intent)
+            } catch (t: Throwable) {
+                Log.w(TAG, "ask-for-data failed", t)
+            }
         }
     }
 
@@ -138,8 +167,16 @@ object PowerampLibrary {
 
     private fun filesIn(context: Context, folderId: Long, folderPath: String): List<PaFile> {
         val out = mutableListOf<PaFile>()
+        // Qualified projections (see isReadable note): bare names are ambiguous
+        // in Poweramp's folder_files⨝albums⨝artists join; a null projection
+        // returns _id only, which would silently yield zero tracks.
         context.contentResolver.query(
-            Uri.parse("$AUTH/folders/$folderId/files"), null, null, null, null,
+            Uri.parse("$AUTH/folders/$folderId/files"),
+            arrayOf(
+                "folder_files.name", "title_tag", "artists.artist", "albums.album",
+                "folder_files.year", "folder_files.duration", "has_lyrics_tag",
+            ),
+            null, null, null,
         )?.use { c ->
             val iName = c.getColumnIndex("name")
             val iTitle = c.getColumnIndex("title_tag")
@@ -157,7 +194,7 @@ object PowerampLibrary {
                     artist = iArtist.takeIf { it >= 0 }?.let { c.getString(it) },
                     album = iAlbum.takeIf { it >= 0 }?.let { c.getString(it) },
                     year = iYear.takeIf { it >= 0 }?.let {
-                        c.getInt(it).takeIf { y -> y > 0 }?.toString()
+                        c.getInt(it).takeIf { y -> y in 1..9999 }?.toString()
                     },
                     durationMs = iDur.takeIf { it >= 0 }?.let { c.getLong(it) },
                     powerampHasLyrics = iLyr >= 0 && c.getInt(iLyr) != 0,

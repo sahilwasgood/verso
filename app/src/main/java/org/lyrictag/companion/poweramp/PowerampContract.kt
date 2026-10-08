@@ -30,6 +30,7 @@ object PowerampContract {
 
     const val POWERAMP_PACKAGE = "com.maxmpz.audioplayer"
     const val POWERAMP_API_RECEIVER = "com.maxmpz.audioplayer.player.PowerampAPIReceiver"
+    const val POWERAMP_API_ACTIVITY = "com.maxmpz.audioplayer.PowerampAPIActivity"
     const val EXTRA_PACKAGE = "pak"
 
     /** Asks Poweramp to grant this app its content-provider data permission. */

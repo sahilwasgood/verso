@@ -50,14 +50,21 @@ class LyricsRequestReceiver : BroadcastReceiver() {
         scope.launch {
             val app = org.lyrictag.companion.LyricTagApp.of(appContext)
             if (!app.autoFetchEnabled()) return@launch // user disabled auto-fetch
-            val repo = app.lyricsRepository
-            val lyrics = try {
-                repo.fetchForPoweramp(title, artist, album, durationMs)
-            } catch (t: Throwable) {
-                Log.w(TAG, "fetch failed", t)
-                null
+            // This is the song the user is looking at: pause batch throughput
+            // until it resolves, then resume automatically.
+            org.lyrictag.companion.lyrics.FetchCoordinator.priorityStart()
+            try {
+                val repo = app.lyricsRepository
+                val lyrics = try {
+                    repo.fetchForPoweramp(title, artist, album, durationMs)
+                } catch (t: Throwable) {
+                    Log.w(TAG, "fetch failed", t)
+                    null
+                }
+                sendResponse(appContext, realId, lyrics)
+            } finally {
+                org.lyrictag.companion.lyrics.FetchCoordinator.priorityDone()
             }
-            sendResponse(appContext, realId, lyrics)
         }
     }
 
