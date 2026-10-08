@@ -90,7 +90,7 @@ class LyricsBatchWorker(
 
         fun enqueue(context: Context) {
             WorkManager.getInstance(context).enqueueUniqueWork(
-                UNIQUE, ExistingWorkPolicy.KEEP,
+                UNIQUE, ExistingWorkPolicy.APPEND,
                 OneTimeWorkRequestBuilder<LyricsBatchWorker>().build(),
             )
         }
