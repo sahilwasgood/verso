@@ -14,9 +14,13 @@ Poweramp remains the player. LyricTag is the librarian.
   because it comes from Poweramp, with whole-device scan as fallback
 - Finds missing lyrics from 5 free, keyless sources (LRCLIB, AMLL, KuGou,
   Lyricify, LunaBeat), scored and reviewable — offline-first, only on your tap
-- Batch-fetch missing lyrics in the background (WorkManager, cancellable)
-- Looks up incomplete tags via MusicBrainz with before/after review; only
-  empty tags are ever filled
+- Batch-fetch missing lyrics in the background (WorkManager, cancellable,
+  4 tracks at a time; the now-playing song always jumps the queue)
+- Looks up incomplete tags via MusicBrainz + iTunes with before/after review;
+  only empty tags are ever filled. "Fix all metadata" auto-applies only
+  near-certain matches (score ≥ 90); filename dumps (YTDL) are parsed and
+  re-healed on every scan
+- Fetches album art (iTunes + Deezer), cached on-device, shown in lists
 - Scrobbles Poweramp playback to ListenBrainz / Last.fm (your own tokens;
   offline plays queue with real timestamps)
 - Review-before-write: nothing is overwritten without your approval
