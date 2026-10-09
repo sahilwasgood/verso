@@ -54,9 +54,11 @@ object ArtworkProviders {
                     val rt = TrackNormalizer.normalize(
                         o["trackName"]?.jsonPrimitive?.contentOrNull.orEmpty()
                     )
-                    if (rt.isNotEmpty() && rt != nt &&
-                        !rt.contains(nt) && !nt.contains(rt)
-                    ) continue
+                    if (rt.isEmpty()) continue
+                    val agrees = rt == nt ||
+                        (minOf(nt.length, rt.length) >= 5 &&
+                            (rt.contains(nt) || nt.contains(rt)))
+                    if (!agrees) continue
                 }
                 // 100px preview → 600px full art.
                 return Art(art.replace("100x100bb.jpg", "600x600bb.jpg"), "iTunes")

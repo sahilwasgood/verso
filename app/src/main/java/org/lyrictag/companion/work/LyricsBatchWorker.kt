@@ -39,7 +39,6 @@ class LyricsBatchWorker(
         val missing = dao.allTracks()
             .filter { !it.ignored && !it.hasEmbeddedLyrics && !it.hasExternalLyrics && !it.hasCachedLyrics }
         val total = missing.size
-        if (total == 0) return@withContext Result.success()
         val done = AtomicInteger(0)
         val found = AtomicInteger(0)
         val slots = Semaphore(PARALLEL_TRACKS)
@@ -50,6 +49,7 @@ class LyricsBatchWorker(
             )
         }
         try {
+            if (total > 0) {
             missing.map { t ->
                 async {
                     slots.withPermit {
@@ -74,6 +74,7 @@ class LyricsBatchWorker(
                     }
                 }
             }.awaitAll()
+            }
         } catch (_: Exception) {
             // Cancellation lands here; partial progress is kept.
         }

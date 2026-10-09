@@ -48,9 +48,13 @@ object ItunesMetadata {
                 val ra = o["artistName"]?.jsonPrimitive?.contentOrNull.orEmpty()
                 val nrt = TrackNormalizer.normalize(rt)
                 if (nrt.isEmpty()) continue
+                // Containment needs enough length both sides, or 2-letter
+                // titles ("Up", "YAD") would match anything at score 90
+                // and get auto-applied by the fix-all batch.
+                val longEnough = minOf(nt.length, nrt.length) >= 5
                 val score = when {
                     nrt == nt -> 95
-                    nt.contains(nrt) || nrt.contains(nt) -> 90
+                    longEnough && (nt.contains(nrt) || nrt.contains(nt)) -> 90
                     else -> 70
                 }
                 // Artist must agree when we know one.
