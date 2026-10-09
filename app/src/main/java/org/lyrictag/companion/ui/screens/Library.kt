@@ -155,7 +155,7 @@ fun LibraryScreen(vm: LibraryViewModel, onTrack: (String) -> Unit) {
                             else MaterialTheme.colorScheme.error,
                         )
                     },
-                    modifier = Modifier.combinedClickable(
+                    modifier = Modifier.animateItem().combinedClickable(
                         onClick = { onTrack(t.path) },
                         onLongClick = { ignoreTarget = t },
                     ),
