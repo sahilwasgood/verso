@@ -16,6 +16,7 @@ class LyricTagApp : Application() {
             .addMigrations(
                 org.lyrictag.companion.db.MIGRATION_1_2,
                 org.lyrictag.companion.db.MIGRATION_2_3,
+                org.lyrictag.companion.db.MIGRATION_3_4,
             )
             .build()
     }
@@ -23,6 +24,11 @@ class LyricTagApp : Application() {
     val lyricsRepository: LyricsRepository
         get() = LyricsRepository.forPrefs(this, RoomLyricsCache(db.lyricsCache(), db.tracks()))
     val scanner: LibraryScanner by lazy { LibraryScanner(this, db.tracks(), db.lyricsCache()) }
+    val artwork: org.lyrictag.companion.artwork.ArtworkRepository by lazy {
+        org.lyrictag.companion.artwork.ArtworkRepository(
+            org.lyrictag.companion.db.ArtCache(db.artCache())
+        )
+    }
     val work: WorkManager by lazy { WorkManager.getInstance(this) }
 
     /** Clears cached lyrics (blocking — call off the main thread). */

@@ -63,6 +63,10 @@ class LyricsBatchWorker(
                                 (t.durationMs ?: 0).toInt(),
                             )
                             if (text != null) found.incrementAndGet()
+                            // Album art rides along (cached URL; bytes in Coil disk cache).
+                            if (!isStopped) {
+                                app.artwork.artUrl(t.title.orEmpty(), t.artist.orEmpty())
+                            }
                         } catch (_: Exception) {
                             // Per-track failure: skip, keep going.
                         }

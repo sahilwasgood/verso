@@ -45,6 +45,7 @@ data class DetailState(
     val loading: Boolean = true,
     val candidates: List<ScoredLyrics> = emptyList(),
     val fromCache: Boolean = false,
+    val artUrl: String? = null,
     val metaLoading: Boolean = false,
     val meta: List<org.lyrictag.companion.metadata.MusicBrainz.Candidate> = emptyList(),
     val message: String? = null,
@@ -54,6 +55,7 @@ class DetailViewModel(
     private val dao: TrackDao,
     private val repo: LyricsRepository,
     private val scanner: org.lyrictag.companion.scan.LibraryScanner,
+    private val artwork: org.lyrictag.companion.artwork.ArtworkRepository,
 ) : ViewModel() {
     private val _state = MutableStateFlow(DetailState())
     val state: StateFlow<DetailState> = _state
@@ -73,7 +75,10 @@ class DetailViewModel(
                     repo.search(t.title.orEmpty(), t.artist.orEmpty(), t.album.orEmpty(), t.durationMs ?: 0)
                 }.getOrDefault(emptyList())
             }
-            _state.value = DetailState(loading = false, candidates = list, fromCache = t.hasCachedLyrics)
+            val art = withContext(Dispatchers.IO) {
+                runCatching { artwork.artUrl(t.title.orEmpty(), t.artist.orEmpty()) }.getOrNull()
+            }
+            _state.value = DetailState(loading = false, candidates = list, fromCache = t.hasCachedLyrics, artUrl = art)
         }
     }
 
@@ -98,8 +103,18 @@ class DetailViewModel(
             _state.value = _state.value.copy(metaLoading = true, meta = emptyList())
             val t = dao.byPath(path)
             val list = if (t == null) emptyList() else withContext(Dispatchers.IO) {
+                // Same multi-artist problem as lyrics: query the primary
+                // artist; fall back to filename guesses when tags are blank.
+                val parsed = if (t.title.isNullOrBlank() || t.artist.isNullOrBlank()) {
+                    org.lyrictag.companion.core.FilenameParser.parse(
+                        path.substringAfterLast('/')
+                    )
+                } else null
+                val qTitle = t.title?.takeIf { it.isNotBlank() } ?: parsed?.title.orEmpty()
+                val qArtist = org.lyrictag.companion.core.TrackNormalizer.primaryArtist(t.artist)
+                    .ifEmpty { parsed?.artist.orEmpty() }
                 org.lyrictag.companion.metadata.MusicBrainz.searchRecording(
-                    t.title.orEmpty(), t.artist.orEmpty(), t.album.orEmpty(),
+                    qTitle, qArtist, t.album.orEmpty(),
                 )
             }
             _state.value = _state.value.copy(metaLoading = false, meta = list)
@@ -205,12 +220,17 @@ fun TrackDetailScreen(path: String, vm: DetailViewModel, track: org.lyrictag.com
     }
 
     Column(Modifier.fillMaxSize().padding(20.dp).verticalScroll(rememberScrollState())) {
-        Text(track?.title ?: "(unknown title)", style = MaterialTheme.typography.headlineSmall)
-        Text(
-            listOfNotNull(track?.artist, track?.album).joinToString(" · "),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            org.lyrictag.companion.ui.TrackThumb(s.artUrl, 96.dp)
+            Column(Modifier.weight(1f)) {
+                Text(track?.title ?: "(unknown title)", style = MaterialTheme.typography.headlineSmall)
+                Text(
+                    listOfNotNull(track?.artist, track?.album).joinToString(" · "),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         Text(
             "Format ${track?.mimeType ?: "?"} · " +
                 "${(track?.durationMs ?: 0) / 1000}s · ${track?.path}",

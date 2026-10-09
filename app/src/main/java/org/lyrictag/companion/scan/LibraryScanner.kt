@@ -59,7 +59,11 @@ class LibraryScanner(
         val batch = mutableListOf<TrackEntity>()
         for ((path, lastMod, durationMs, mime) in uris) {
             val existing = tracks.byPath(path)
-            if (existing != null && existing.lastModified == lastMod && existing.cacheKey.isNotEmpty()) {
+            // Review-flagged rows get re-read: parser/metadata improvements
+            // should heal them on the next scan instead of being skipped.
+            if (existing != null && !existing.needsReview &&
+                existing.lastModified == lastMod && existing.cacheKey.isNotEmpty()
+            ) {
                 done++
                 if (done % 50 == 0) onProgress(Progress(done, uris.size))
                 continue
@@ -137,23 +141,33 @@ class LibraryScanner(
         val file = File(path)
         if (!file.canRead()) return null
         return when (val r = TagManager.read(file)) {
-            is TagResult.Ok -> TrackEntity(
-                path = path, title = r.tags.title, artist = r.tags.artist,
-                album = r.tags.album, albumArtist = r.tags.albumArtist,
-                trackNo = r.tags.track?.substringBefore('/')?.toIntOrNull(),
-                discNo = r.tags.disc?.substringBefore('/')?.toIntOrNull(),
-                year = r.tags.year, genre = r.tags.genre,
-                durationMs = durationMs ?: r.info.durationMs,
-                mimeType = mime ?: r.info.mimeType, lastModified = lastMod,
-                hasEmbeddedLyrics = !r.tags.lyrics.isNullOrBlank(),
-                hasExternalLyrics = hasSidecar(path),
-                hasCachedLyrics = false, // reconciled against lyrics_cache after scan
-                cacheKey = org.lyrictag.companion.core.TrackNormalizer.cacheKey(
-                    r.tags.title, r.tags.artist, r.tags.album,
-                ),
-                needsReview = r.tags.title.isNullOrBlank() || r.tags.artist.isNullOrBlank(),
-                ignored = ignored,
-            )
+            is TagResult.Ok -> {
+                // YTDL dumps often have no tags: guess from the filename so
+                // search, lyrics and review have something to work with.
+                // Real tags always win; the parser only fills blanks.
+                val parsed = if (r.tags.title.isNullOrBlank() || r.tags.artist.isNullOrBlank()) {
+                    org.lyrictag.companion.core.FilenameParser.parse(file.name)
+                } else null
+                val title = r.tags.title?.takeIf { it.isNotBlank() } ?: parsed?.title?.ifEmpty { null }
+                val artist = r.tags.artist?.takeIf { it.isNotBlank() } ?: parsed?.artist
+                TrackEntity(
+                    path = path, title = title, artist = artist,
+                    album = r.tags.album, albumArtist = r.tags.albumArtist,
+                    trackNo = r.tags.track?.substringBefore('/')?.toIntOrNull(),
+                    discNo = r.tags.disc?.substringBefore('/')?.toIntOrNull(),
+                    year = r.tags.year, genre = r.tags.genre,
+                    durationMs = durationMs ?: r.info.durationMs,
+                    mimeType = mime ?: r.info.mimeType, lastModified = lastMod,
+                    hasEmbeddedLyrics = !r.tags.lyrics.isNullOrBlank(),
+                    hasExternalLyrics = hasSidecar(path),
+                    hasCachedLyrics = false, // reconciled against lyrics_cache after scan
+                    cacheKey = org.lyrictag.companion.core.TrackNormalizer.cacheKey(
+                        title, artist, r.tags.album,
+                    ),
+                    needsReview = title.isNullOrBlank() || artist.isNullOrBlank(),
+                    ignored = ignored,
+                )
+            }
             else -> null // unreadable files are skipped, never crash the scan
         }
     }

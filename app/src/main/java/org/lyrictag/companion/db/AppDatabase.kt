@@ -41,6 +41,14 @@ data class LyricsCacheEntity(
     val updatedAt: Long,
 )
 
+/** Cached album-art URLs (image bytes live in Coil's disk cache). */
+@Entity(tableName = "art_cache")
+data class ArtCacheEntity(
+    @PrimaryKey val key: String,
+    val url: String,
+    val updatedAt: Long,
+)
+
 /** Offline scrobble queue: submitted with their original timestamps when back online. */
 @Entity(tableName = "scrobble_queue")
 data class ScrobbleEntity(
@@ -154,11 +162,24 @@ interface LyricsCacheDao {
     fun bytes(): Long
 }
 
-@Database(entities = [TrackEntity::class, LyricsCacheEntity::class, ScrobbleEntity::class], version = 3, exportSchema = false)
+@Database(entities = [TrackEntity::class, LyricsCacheEntity::class, ScrobbleEntity::class, ArtCacheEntity::class], version = 4, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun tracks(): TrackDao
     abstract fun lyricsCache(): LyricsCacheDao
     abstract fun scrobbles(): ScrobbleDao
+    abstract fun artCache(): ArtDao
+}
+
+@Dao
+interface ArtDao {
+    @Query("SELECT url FROM art_cache WHERE `key` = :key LIMIT 1")
+    suspend fun get(key: String): String?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun put(e: ArtCacheEntity)
+
+    @Query("DELETE FROM art_cache")
+    fun clear()
 }
 
 val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
@@ -186,6 +207,27 @@ fun splitCacheKey(key: String): Pair<String, String> {
     return key to "${parts[0]}|${parts[1]}|"
 }
 
+/** Room-backed art-URL cache using normalized keys. */
+class ArtCache(private val dao: ArtDao) {
+    suspend fun get(title: String, artist: String): String? {
+        val key = TrackNormalizer.cacheKey(title, artist, "")
+        return dao.get(key)
+    }
+
+    suspend fun put(title: String, artist: String, url: String) {
+        val key = TrackNormalizer.cacheKey(title, artist, "")
+        dao.put(ArtCacheEntity(key, url, System.currentTimeMillis()))
+    }
+}
+
+val MIGRATION_3_4 = object : androidx.room.migration.Migration(3, 4) {
+    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS art_cache (" +
+                "`key` TEXT PRIMARY KEY NOT NULL, url TEXT NOT NULL, updatedAt INTEGER NOT NULL)"
+        )
+    }
+}
 /** Room-backed LyricsCache using normalized keys; flags matching tracks. */
 class RoomLyricsCache(
     private val dao: LyricsCacheDao,

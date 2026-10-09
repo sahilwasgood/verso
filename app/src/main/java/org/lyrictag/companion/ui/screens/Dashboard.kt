@@ -1,5 +1,7 @@
 package org.lyrictag.companion.ui.screens
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -163,7 +166,13 @@ fun DashboardScreen(vm: DashboardViewModel) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(8.dp))
-        Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors()) {
+        Card(
+            modifier = Modifier.fillMaxWidth().animateContentSize().background(
+                org.lyrictag.companion.ui.theme.headerGradient(),
+                shape = MaterialTheme.shapes.medium,
+            ),
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        ) {
             Column(Modifier.padding(20.dp)) {
                 Text("${s.total} tracks", style = MaterialTheme.typography.headlineMedium)
                 Spacer(Modifier.height(4.dp))
@@ -172,16 +181,24 @@ fun DashboardScreen(vm: DashboardViewModel) {
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                s.scanProgress?.let {
-                    Spacer(Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        if (s.scanning) CircularProgressIndicator()
-                        Text("Scanning music… $it", style = MaterialTheme.typography.bodyMedium)
+                androidx.compose.animation.AnimatedVisibility(visible = s.scanProgress != null) {
+                    s.scanProgress?.let {
+                        Column {
+                            Spacer(Modifier.height(8.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                if (s.scanning) CircularProgressIndicator()
+                                Text("Scanning music… $it", style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
                     }
                 }
-                s.lastResult?.let {
-                    Spacer(Modifier.height(8.dp))
-                    Text(it, style = MaterialTheme.typography.bodyMedium)
+                androidx.compose.animation.AnimatedVisibility(visible = s.lastResult != null) {
+                    s.lastResult?.let {
+                        Column {
+                            Spacer(Modifier.height(8.dp))
+                            Text(it, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
                 }
             }
         }

@@ -85,7 +85,7 @@ class MainActivity : ComponentActivity() {
                             }
                             composable("library") {
                                 val vm: LibraryViewModel = viewModel {
-                                    LibraryViewModel(app.db.tracks())
+                                    LibraryViewModel(app.db.tracks(), app.artwork)
                                 }
                                 LibraryScreen(vm, onTrack = { path ->
                                     nav.navigate("track/${android.net.Uri.encode(path)}")
@@ -94,7 +94,7 @@ class MainActivity : ComponentActivity() {
                             composable("track/{path}") { e ->
                                 val path = android.net.Uri.decode(e.arguments?.getString("path")).orEmpty()
                                 val vm: DetailViewModel = viewModel {
-                                    DetailViewModel(app.db.tracks(), app.lyricsRepository, app.scanner)
+                                    DetailViewModel(app.db.tracks(), app.lyricsRepository, app.scanner, app.artwork)
                                 }
                                 val track by androidx.compose.runtime.produceState<
                                     org.lyrictag.companion.db.TrackEntity?>(null, path) {

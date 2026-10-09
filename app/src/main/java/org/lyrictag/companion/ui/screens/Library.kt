@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -40,6 +41,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import org.lyrictag.companion.db.TrackDao
 import org.lyrictag.companion.db.TrackEntity
+import org.lyrictag.companion.ui.TrackThumb
 
 enum class LibraryFilter(val label: String) {
     ALL("All"),
@@ -48,7 +50,10 @@ enum class LibraryFilter(val label: String) {
     NEEDS_REVIEW("Review"),
 }
 
-class LibraryViewModel(private val dao: TrackDao) : ViewModel() {
+class LibraryViewModel(
+    private val dao: TrackDao,
+    val artwork: org.lyrictag.companion.artwork.ArtworkRepository,
+) : ViewModel() {
     private val _filter = MutableStateFlow(LibraryFilter.ALL)
     val filter: StateFlow<LibraryFilter> = _filter
     private val _query = MutableStateFlow("")
@@ -124,8 +129,17 @@ fun LibraryScreen(vm: LibraryViewModel, onTrack: (String) -> Unit) {
                 key = { i -> lazyTracks[i]?.path ?: i },
             ) { i ->
                 val t = lazyTracks[i] ?: return@items
+                // Cached after first load (Room URL + Coil disk cache).
+                val art by androidx.compose.runtime.produceState<String?>(null, t.path) {
+                    value = runCatching {
+                        vm.artwork.artUrl(t.title.orEmpty(), t.artist.orEmpty())
+                    }.getOrNull()
+                }
                 ListItem(
                     headlineContent = { Text(t.title ?: "(unknown title)") },
+                    leadingContent = {
+                        TrackThumb(art, 48.dp)
+                    },
                     supportingContent = {
                         Text(
                             listOfNotNull(t.artist, t.album).joinToString(" · ").ifBlank { "unknown artist" },
