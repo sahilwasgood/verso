@@ -77,6 +77,27 @@ class LyricsBatchWorker(
         } catch (_: Exception) {
             // Cancellation lands here; partial progress is kept.
         }
+        // Art prefetch for tracks that already had lyrics (the loop above
+        // only covers missing-lyrics tracks). Cached URLs skip silently.
+        try {
+            val artwork = app.artwork
+            for (t in dao.allTracks()) {
+                if (isStopped) break
+                FetchCoordinator.yieldWhilePriority()
+                if (isStopped) break
+                val title = t.title.orEmpty()
+                if (title.isBlank() || t.ignored) continue
+                try {
+                    if (!artwork.hasArt(title, t.artist.orEmpty())) {
+                        artwork.artUrl(title, t.artist.orEmpty())
+                    }
+                } catch (_: Exception) {
+                    // Per-track failure: skip, keep going.
+                }
+            }
+        } catch (_: Exception) {
+            // Cancellation lands here; partial progress is kept.
+        }
         publish()
         Result.success(
             Data.Builder().putInt(KEY_DONE, done.get()).putInt(KEY_TOTAL, total)

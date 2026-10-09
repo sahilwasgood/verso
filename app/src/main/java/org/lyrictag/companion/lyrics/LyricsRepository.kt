@@ -25,7 +25,10 @@ class LyricsRepository(
         title: String, artist: String, album: String, durationMs: Int,
     ): String? {
         cache.get(title, artist, album)?.let { return it }
-        val best = search(title, artist, album, durationMs.toLong()).firstOrNull()
+        // Never serve a REJECT match to Poweramp: a wrong lyric shown
+        // automatically is worse than "no lyrics found".
+        val best = search(title, artist, album, durationMs.toLong())
+            .firstOrNull { it.confidence != org.lyrictag.companion.core.Confidence.REJECT }
             ?: return null
         val text = best.result.synced ?: best.result.plain ?: return null
         cache.put(title, artist, album, text)
@@ -53,6 +56,26 @@ class LyricsRepository(
                     }
                 }
             }.awaitAll().flatten()
+        }.toMutableList()
+        // Retry bare-titled ("Song (Slowed)" → "Song"): YTDL remix tags
+        // match nothing, but the base song often exists. Scoring still
+        // applies, so a bad retry never outranks — or reaches — a real match.
+        if (all.isEmpty()) {
+            val bare = title.replace(Regex("""\s*[\(\[].*?[\)\]]"""), "").trim()
+            if (bare.length >= 3 && !bare.equals(title, ignoreCase = true)) {
+                val retry = supervisorScope {
+                    providers.map { p ->
+                        async(kotlinx.coroutines.Dispatchers.IO) {
+                            try {
+                                p.fetch(bare, qArtist, album, durationMs.toInt())
+                            } catch (_: Exception) {
+                                emptyList()
+                            }
+                        }
+                    }.awaitAll().flatten()
+                }
+                all += retry
+            }
         }
         return all.map { r ->
             val s = TrackMatcher.score(

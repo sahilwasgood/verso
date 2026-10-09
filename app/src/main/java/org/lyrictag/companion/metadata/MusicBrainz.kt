@@ -3,9 +3,12 @@ package org.lyrictag.companion.metadata
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.OkHttpClient
-import okhttp3.Request
-import org.json.JSONObject
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
@@ -43,34 +46,30 @@ object MusicBrainz {
                 if (album.isNotBlank()) append(" AND release:\"${album}\"".enc())
             }
             val url = "https://musicbrainz.org/ws/2/recording/?query=$q&fmt=json&limit=5"
-            val req = Request.Builder().url(url)
-                .header("User-Agent", "LyricTag/0.1.0 (https://github.com/lyrictag/lyrictag)")
-                .build()
-            client.newCall(req).execute().use { resp ->
-                if (!resp.isSuccessful) return@withContext emptyList()
-                val root = runCatching {
-                    JSONObject(resp.body?.string().orEmpty())
-                }.getOrNull() ?: return@withContext emptyList()
-                val arr = root.optJSONArray("recordings") ?: return@withContext emptyList()
-                val out = mutableListOf<Candidate>()
-                for (i in 0 until arr.length()) {
-                    val r = arr.optJSONObject(i) ?: continue
-                    val artists = r.optJSONArray("artist-credit")
-                    val artistName = (0 until (artists?.length() ?: 0))
-                        .mapNotNull { artists?.optJSONObject(it)?.optString("name") }
-                        .joinToString(", ").ifEmpty { null }
-                    val releases = r.optJSONArray("releases")
-                    val rel = releases?.optJSONObject(0)
-                    out += Candidate(
-                        title = r.optString("title").ifEmpty { null },
-                        artist = artistName,
-                        album = rel?.optString("title")?.ifEmpty { null },
-                        year = rel?.optString("date")?.take(4)?.ifEmpty { null },
-                        score = r.optInt("score", 0),
-                    )
-                }
-                out
+            // kotlinx.serialization (not org.json): the latter is an Android
+            // stub that throws in local unit tests.
+            val root = org.lyrictag.companion.lyrics.ProviderHttp.get(
+                client, url,
+                "LyricTag/0.1.0 (https://github.com/lyrictag/lyrictag)",
+            ) ?: return@withContext emptyList()
+            val arr = root["recordings"]?.jsonArray ?: return@withContext emptyList()
+            val out = mutableListOf<Candidate>()
+            for (el in arr) {
+                val r = el.jsonObject
+                val artists = r["artist-credit"]?.jsonArray
+                val artistName = artists
+                    ?.mapNotNull { it.jsonObject["name"]?.jsonPrimitive?.contentOrNull }
+                    ?.joinToString(", ")?.ifEmpty { null }
+                val rel = r["releases"]?.jsonArray?.firstOrNull()?.jsonObject
+                out += Candidate(
+                    title = r["title"]?.jsonPrimitive?.contentOrNull?.ifEmpty { null },
+                    artist = artistName,
+                    album = rel?.get("title")?.jsonPrimitive?.contentOrNull?.ifEmpty { null },
+                    year = rel?.get("date")?.jsonPrimitive?.contentOrNull?.take(4)?.ifEmpty { null },
+                    score = r["score"]?.jsonPrimitive?.intOrNull ?: 0,
+                )
             }
+            out
         } catch (_: Exception) {
             emptyList()
         }
@@ -80,6 +79,27 @@ object MusicBrainz {
         val wait = 1100 - (System.currentTimeMillis() - lastCallMs)
         if (wait > 0) delay(wait)
         lastCallMs = System.currentTimeMillis()
+    }
+
+    /**
+     * Query with primary-artist + filename fallback (shared by the detail
+     * screen and the fix-all batch): multi-artist tags and blank YTDL tags
+     * match nothing on MusicBrainz otherwise. iTunes (fuzzy) backs
+     * MusicBrainz (strict); best score wins per source ordering.
+     */
+    suspend fun suggestFor(
+        title: String?, artist: String?, album: String?, fileName: String,
+    ): List<Candidate> {
+        val parsed = if (title.isNullOrBlank() || artist.isNullOrBlank()) {
+            org.lyrictag.companion.core.FilenameParser.parse(fileName)
+        } else null
+        val qTitle = title?.takeIf { it.isNotBlank() } ?: parsed?.title.orEmpty()
+        val qArtist = org.lyrictag.companion.core.TrackNormalizer.primaryArtist(artist)
+            .ifEmpty { parsed?.artist.orEmpty() }
+        val mb = searchRecording(qTitle, qArtist, album.orEmpty())
+        if (mb.any { it.score >= 90 }) return mb
+        val itunes = ItunesMetadata.search(qTitle, qArtist)
+        return (mb + itunes).sortedByDescending { it.score }
     }
 
     private fun String.enc(): String = URLEncoder.encode(this, "UTF-8")

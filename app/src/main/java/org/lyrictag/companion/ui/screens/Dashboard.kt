@@ -39,9 +39,14 @@ data class DashboardState(
     val total: Int = 0,
     val missingLyrics: Int = 0,
     val withLyrics: Int = 0,
+    val needsReview: Int = 0,
     val scanning: Boolean = false,
     val scanProgress: String? = null,
     val lastResult: String? = null,
+    val fixingMeta: Boolean = false,
+    val metaProgress: String? = null,
+    /** API 30+: tag writes need one-time "All files access" approval. */
+    val showWriteAccess: Boolean = false,
     /** Poweramp installed but its library unreadable -> offer the grant flow. */
     val showPowerampConnect: Boolean = false,
 )
@@ -69,6 +74,7 @@ class DashboardViewModel(
     init {
         batchLive.observeForever(batchObserver)
         refreshPowerampHint()
+        refreshWriteAccess()
         viewModelScope.launch {
             dao.observeCount().collect { total ->
                 _state.update { it.copy(total = total) }
@@ -84,6 +90,11 @@ class DashboardViewModel(
                 _state.update { it.copy(withLyrics = with) }
             }
         }
+        viewModelScope.launch {
+            dao.observeNeedsReview().collect { review ->
+                _state.update { it.copy(needsReview = review) }
+            }
+        }
     }
 
     private fun refreshPowerampHint() {
@@ -93,6 +104,15 @@ class DashboardViewModel(
             // Tapping the button with no Poweramp installed is a harmless no-op.
             val show = !org.lyrictag.companion.poweramp.PowerampLibrary.isReadable(app)
             _state.update { it.copy(showPowerampConnect = show) }
+        }
+    }
+
+    /** Re-check after returning from system Settings (call on resume). */
+    fun refreshWriteAccess() {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            _state.update {
+                it.copy(showWriteAccess = !org.lyrictag.companion.core.StorageAccess.canWrite())
+            }
         }
     }
 
@@ -140,12 +160,76 @@ class DashboardViewModel(
             refreshPowerampHint()
         }
     }
+
+    /**
+     * Metadata fix for every review-flagged track: MusicBrainz suggest
+     * (1 req/s per their policy) + auto-apply only near-certain matches
+     * (score >= 90) into empty tags. Anything unsure stays for manual review.
+     */
+    fun fixAllMetadata() {
+        if (_state.value.fixingMeta) return
+        if (!org.lyrictag.companion.core.StorageAccess.canWrite()) {
+            _state.update {
+                it.copy(lastResult = "Allow file changes first (button above), then retry.")
+            }
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(fixingMeta = true, metaProgress = null) }
+            var fixed = 0
+            var skipped = 0
+            try {
+                val tracks = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    dao.needsReviewTracks()
+                }
+                for ((i, t) in tracks.withIndex()) {
+                    _state.update { it.copy(metaProgress = "${i + 1} / ${tracks.size}") }
+                    try {
+                        val cands = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            org.lyrictag.companion.metadata.MusicBrainz.suggestFor(
+                                t.title, t.artist, t.album, t.path.substringAfterLast('/'),
+                            )
+                        }
+                        val best = cands.firstOrNull()
+                        if (best != null && best.score >= 90) {
+                            val msg = org.lyrictag.companion.metadata.applyCandidate(
+                                dao, scanner, t.path, best,
+                            )
+                            if (msg.endsWith("fields fixed.")) fixed++
+                            else skipped++
+                        } else skipped++
+                    } catch (_: Throwable) {
+                        skipped++
+                    }
+                }
+            } catch (_: Throwable) {
+                // Summary below reports what happened; nothing to unravel.
+            }
+            val summary = "Metadata fix: $fixed fixed" +
+                (if (skipped > 0) ", $skipped still need review" else "")
+            _state.update {
+                it.copy(
+                    fixingMeta = false, metaProgress = null,
+                    lastResult = summary,
+                )
+            }
+        }
+    }
 }
 
 @Composable
 fun DashboardScreen(vm: DashboardViewModel) {
     val s by vm.state.collectAsState()
     val context = androidx.compose.ui.platform.LocalContext.current
+    // Re-check the write-access flag whenever returning from Settings.
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    androidx.compose.runtime.DisposableEffect(lifecycle) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) vm.refreshWriteAccess()
+        }
+        lifecycle.addObserver(obs)
+        onDispose { lifecycle.removeObserver(obs) }
+    }
     val batch by vm.batch.collectAsState()
     val prog = batch?.progress
     val batchText = when {
@@ -219,6 +303,34 @@ fun DashboardScreen(vm: DashboardViewModel) {
             ) {
                 Text("Fetch missing lyrics (${s.missingLyrics})")
             }
+        }
+        if (s.fixingMeta) {
+            OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) {
+                Text("Fixing metadata… ${s.metaProgress ?: ""}")
+            }
+        } else if (s.needsReview > 0 && !s.scanning) {
+            OutlinedButton(
+                onClick = { vm.fixAllMetadata() },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Fix all metadata (${s.needsReview})")
+            }
+        }
+        if (s.showWriteAccess && !s.scanning && !s.fixingMeta) {
+            TextButton(
+                onClick = {
+                    org.lyrictag.companion.core.StorageAccess.request(context)
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Allow file changes")
+            }
+            Text(
+                "Fixing tags, embedding lyrics and saving covers writes into your " +
+                    "music files — approve it once in Settings, then retry.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         if (s.showPowerampConnect && !s.scanning) {
             TextButton(

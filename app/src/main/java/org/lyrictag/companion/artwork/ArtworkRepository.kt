@@ -96,6 +96,11 @@ class ArtworkRepository(
         .readTimeout(20, TimeUnit.SECONDS)
         .build()
 
+    /** True when a URL is already cached (cheap Room read, no network). */
+    suspend fun hasArt(title: String, artist: String): Boolean = withContext(Dispatchers.IO) {
+        cache.get(title, artist) != null
+    }
+
     /** Cached URL or fresh lookup (primary-artist query, iTunes → Deezer). */
     suspend fun artUrl(title: String, artist: String): String? = withContext(Dispatchers.IO) {
         cache.get(title, artist)?.let { return@withContext it }

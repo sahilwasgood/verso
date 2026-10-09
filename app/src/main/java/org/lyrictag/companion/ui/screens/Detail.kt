@@ -103,18 +103,8 @@ class DetailViewModel(
             _state.value = _state.value.copy(metaLoading = true, meta = emptyList())
             val t = dao.byPath(path)
             val list = if (t == null) emptyList() else withContext(Dispatchers.IO) {
-                // Same multi-artist problem as lyrics: query the primary
-                // artist; fall back to filename guesses when tags are blank.
-                val parsed = if (t.title.isNullOrBlank() || t.artist.isNullOrBlank()) {
-                    org.lyrictag.companion.core.FilenameParser.parse(
-                        path.substringAfterLast('/')
-                    )
-                } else null
-                val qTitle = t.title?.takeIf { it.isNotBlank() } ?: parsed?.title.orEmpty()
-                val qArtist = org.lyrictag.companion.core.TrackNormalizer.primaryArtist(t.artist)
-                    .ifEmpty { parsed?.artist.orEmpty() }
-                org.lyrictag.companion.metadata.MusicBrainz.searchRecording(
-                    qTitle, qArtist, t.album.orEmpty(),
+                org.lyrictag.companion.metadata.MusicBrainz.suggestFor(
+                    t.title, t.artist, t.album, path.substringAfterLast('/'),
                 )
             }
             _state.value = _state.value.copy(metaLoading = false, meta = list)
@@ -130,38 +120,11 @@ class DetailViewModel(
         candidate: org.lyrictag.companion.metadata.MusicBrainz.Candidate,
         onDone: (String) -> Unit,
     ) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val t = dao.byPath(path)
-            if (t == null) {
-                withContext(Dispatchers.Main) { onDone("Track no longer in library.") }
-                return@launch
-            }
-            val updates = linkedMapOf<org.jaudiotagger.tag.FieldKey, String>()
-            val rules = mapOf(
-                org.jaudiotagger.tag.FieldKey.TITLE to
-                    org.lyrictag.companion.core.MetadataField(t.title, candidate.title),
-                org.jaudiotagger.tag.FieldKey.ARTIST to
-                    org.lyrictag.companion.core.MetadataField(t.artist, candidate.artist),
-                org.jaudiotagger.tag.FieldKey.ALBUM to
-                    org.lyrictag.companion.core.MetadataField(t.album, candidate.album),
-                org.jaudiotagger.tag.FieldKey.YEAR to
-                    org.lyrictag.companion.core.MetadataField(t.year, candidate.year),
+        viewModelScope.launch {
+            val msg = org.lyrictag.companion.metadata.applyCandidate(
+                dao, scanner, path, candidate,
             )
-            for ((field, rule) in rules) {
-                rule.resolved(org.lyrictag.companion.core.OverwritePolicy.ONLY_EMPTY)?.let {
-                    updates[field] = it
-                }
-            }
-            val msg = if (updates.isEmpty()) {
-                "Nothing to fix — existing tags are already filled."
-            } else {
-                val err = TagManager.write(java.io.File(path), updates)
-                if (err == null) {
-                    scanner.refreshRow(path)
-                    "${updates.size} fields fixed."
-                } else err
-            }
-            withContext(Dispatchers.Main) { onDone(msg) }
+            onDone(msg)
         }
     }
 

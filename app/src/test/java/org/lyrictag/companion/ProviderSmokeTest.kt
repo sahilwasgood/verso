@@ -56,4 +56,26 @@ class ProviderSmokeTest {
             LunaBeatProvider(client).fetch("爱琴海", "周杰伦", "", 0).size
         }
     }
+
+    @Test fun musicbrainzSuggest() = runBlocking {
+        val list = org.lyrictag.companion.metadata.MusicBrainz.suggestFor(
+            "Lut Gaye", "Jubin Nautiyal", "", "Lut_Gaye.mp3",
+        )
+        println("MusicBrainz returned ${list.size} candidates")
+        assertTrue("MusicBrainz found nothing for Lut Gaye", list.isNotEmpty())
+    }
+
+    @Test fun itunesMetadataJunkTitle() = runBlocking {
+        // Real YTDL dump: whole filename is the title, no artist.
+        val list = org.lyrictag.companion.metadata.MusicBrainz.suggestFor(
+            "Akon Right Now Na Na Na", null, "", "Akon_Right_Now_Na_Na_Na.mp3",
+        )
+        println("Suggest returned ${list.size}: ${list.take(2)}")
+        val best = list.firstOrNull()
+        assertTrue(
+            "No usable metadata for the Akon dump",
+            best != null && (best.score >= 90) &&
+                (best.artist?.contains("Akon", ignoreCase = true) == true),
+        )
+    }
 }

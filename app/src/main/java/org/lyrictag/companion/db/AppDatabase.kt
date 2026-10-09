@@ -115,6 +115,12 @@ interface TrackDao {
     @Query("UPDATE tracks SET hasCachedLyrics = 0")
     suspend fun resetCached()
 
+    @Query("SELECT COUNT(*) FROM tracks WHERE ignored = 0 AND needsReview = 1")
+    fun observeNeedsReview(): Flow<Int>
+
+    @Query("SELECT * FROM tracks WHERE ignored = 0 AND needsReview = 1")
+    suspend fun needsReviewTracks(): List<TrackEntity>
+
     @Query("UPDATE tracks SET ignored = :ignored WHERE path = :path")
     suspend fun setIgnored(path: String, ignored: Boolean)
 }
