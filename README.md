@@ -21,8 +21,9 @@ Poweramp remains the player. LyricTag is the librarian.
   near-certain matches (score ≥ 90); filename dumps (YTDL) are parsed and
   re-healed on every scan
 - Fetches album art (iTunes + Deezer), cached on-device, shown in lists
-- Scrobbles Poweramp playback to ListenBrainz / Last.fm (your own tokens;
-  offline plays queue with real timestamps)
+- Scrobbles Poweramp playback to ListenBrainz (user token) / Last.fm
+  (your own API key; browser approval, password never touches the app).
+  Offline plays queue with real timestamps
 - Review-before-write: nothing is overwritten without your approval
 - Embeds lyrics into files where safe, or saves `.lrc` / `.txt` next to them
 
