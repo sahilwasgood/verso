@@ -17,6 +17,7 @@ class LyricTagApp : Application() {
                 org.lyrictag.companion.db.MIGRATION_1_2,
                 org.lyrictag.companion.db.MIGRATION_2_3,
                 org.lyrictag.companion.db.MIGRATION_3_4,
+                org.lyrictag.companion.db.MIGRATION_4_5,
             )
             .build()
     }

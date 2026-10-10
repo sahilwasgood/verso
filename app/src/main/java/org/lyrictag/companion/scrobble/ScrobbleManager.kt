@@ -7,6 +7,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.lyrictag.companion.db.AppDatabase
 import org.lyrictag.companion.db.ScrobbleEntity
 
@@ -116,19 +118,17 @@ object ScrobbleManager {
         if (!qualifies) return
         scope.launch {
             try {
-                // Same (track, start time) twice = process-death double
-                // delivery; one listen per actual play.
-                if (db.scrobbles().exists(np.title, np.artist, np.startedAtSec) == 0) {
-                    db.scrobbles().enqueue(
-                        ScrobbleEntity(
-                            title = np.title, artist = np.artist,
-                            album = np.album.ifBlank { null },
-                            durationMs = np.durationMs.takeIf { it > 0 },
-                            listenedAtSec = np.startedAtSec,
-                        )
+                // IGNORE + unique index make the identical listen insert
+                // once even when broadcast and listener sources race.
+                val rowId = db.scrobbles().enqueue(
+                    ScrobbleEntity(
+                        title = np.title, artist = np.artist,
+                        album = np.album.ifBlank { null },
+                        durationMs = np.durationMs.takeIf { it > 0 },
+                        listenedAtSec = np.startedAtSec,
                     )
-                    Log.i(TAG, "queued scrobble: ${np.title}")
-                }
+                )
+                if (rowId != -1L) Log.i(TAG, "queued scrobble: ${np.title}")
             } catch (t: Throwable) {
                 Log.w(TAG, "enqueue failed", t)
             }
@@ -139,12 +139,21 @@ object ScrobbleManager {
     /** Sends queued listens to every configured service, oldest first. */
     fun flushQueue(context: Context, db: AppDatabase) {
         scope.launch {
+            flushMutex.withLock {
+                flushLocked(context, db)
+            }
+        }
+    }
+
+    private val flushMutex = kotlinx.coroutines.sync.Mutex()
+
+    private suspend fun flushLocked(context: Context, db: AppDatabase) {
             val p = prefs(context)
             val lbToken = p.getString("lb_token", "").orEmpty()
             val lfSession = p.getString("lf_session", null)
             val lfKey = p.getString("lf_key", "").orEmpty()
             val lfSecret = p.getString("lf_secret", "").orEmpty()
-            if (lbToken.isBlank() && lfSession.isNullOrBlank()) return@launch
+            if (lbToken.isBlank() && lfSession.isNullOrBlank()) return
             try {
                 for (e in db.scrobbles().oldest()) {
                     var ok = true
@@ -171,7 +180,6 @@ object ScrobbleManager {
             } catch (t: Throwable) {
                 Log.w(TAG, "flush failed", t)
             }
-        }
     }
 
     private fun nowSec(): Long = System.currentTimeMillis() / 1000

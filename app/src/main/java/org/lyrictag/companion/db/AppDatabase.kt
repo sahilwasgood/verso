@@ -50,7 +50,12 @@ data class ArtCacheEntity(
 )
 
 /** Offline scrobble queue: submitted with their original timestamps when back online. */
-@Entity(tableName = "scrobble_queue")
+@Entity(
+    tableName = "scrobble_queue",
+    indices = [androidx.room.Index(
+        value = ["title", "artist", "listenedAtSec"], unique = true
+    )],
+)
 data class ScrobbleEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val title: String,
@@ -127,11 +132,9 @@ interface TrackDao {
 
 @Dao
 interface ScrobbleDao {
-    @Insert
-    suspend fun enqueue(e: ScrobbleEntity)
-
-    @Query("SELECT COUNT(*) FROM scrobble_queue WHERE title = :title AND artist = :artist AND listenedAtSec = :listenedAt")
-    suspend fun exists(title: String, artist: String, listenedAt: Long): Int
+    /** Returns row id, or -1 when the identical listen is already queued. */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun enqueue(e: ScrobbleEntity): Long
 
     @Query("SELECT * FROM scrobble_queue ORDER BY id LIMIT 100")
     suspend fun oldest(): List<ScrobbleEntity>
@@ -171,7 +174,7 @@ interface LyricsCacheDao {
     fun bytes(): Long
 }
 
-@Database(entities = [TrackEntity::class, LyricsCacheEntity::class, ScrobbleEntity::class, ArtCacheEntity::class], version = 4, exportSchema = false)
+@Database(entities = [TrackEntity::class, LyricsCacheEntity::class, ScrobbleEntity::class, ArtCacheEntity::class], version = 5, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun tracks(): TrackDao
     abstract fun lyricsCache(): LyricsCacheDao
@@ -229,6 +232,15 @@ class ArtCache(private val dao: ArtDao) {
     }
 }
 
+val MIGRATION_4_5 = object : androidx.room.migration.Migration(4, 5) {
+    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS " +
+                "index_scrobble_queue_title_artist_listenedAtSec ON " +
+                "scrobble_queue(title, artist, listenedAtSec)"
+        )
+    }
+}
 val MIGRATION_3_4 = object : androidx.room.migration.Migration(3, 4) {
     override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
         db.execSQL(
