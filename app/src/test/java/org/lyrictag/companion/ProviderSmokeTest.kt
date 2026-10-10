@@ -65,8 +65,18 @@ class ProviderSmokeTest {
         assertTrue("MusicBrainz found nothing for Lut Gaye", list.isNotEmpty())
     }
 
+    @Test fun lastfmRequestToken() = runBlocking {
+        // Step 1 needs no user action; step 2 (approval) is manual.
+        // Credentials come from env so no secret lands in git.
+        val key = System.getenv("LASTFM_TEST_KEY")
+        val secret = System.getenv("LASTFM_TEST_SECRET")
+        org.junit.Assume.assumeTrue("set LASTFM_TEST_KEY/SECRET to run", key != null && secret != null)
+        val token = org.lyrictag.companion.scrobble.LastFm.requestToken(key!!, secret!!)
+        println("Last.fm token: ${token?.take(8)}...")
+        assertTrue("Last.fm issued no token", !token.isNullOrBlank())
+    }
+
     @Test fun itunesMetadataJunkTitle() = runBlocking {
-        // Real YTDL dump: whole filename is the title, no artist.
         val list = org.lyrictag.companion.metadata.MusicBrainz.suggestFor(
             "Akon Right Now Na Na Na", null, "", "Akon_Right_Now_Na_Na_Na.mp3",
         )

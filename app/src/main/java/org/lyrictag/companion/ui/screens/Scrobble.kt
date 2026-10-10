@@ -22,7 +22,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -67,24 +66,53 @@ class ScrobbleViewModel(private val db: AppDatabase) : ViewModel() {
         }
     }
 
-    fun connectLastFm(
-        context: android.content.Context,
-        key: String, secret: String, user: String, password: String,
-    ) {
+    private val _lfLink = MutableStateFlow<String?>(null)
+    val lfLink: StateFlow<String?> = _lfLink
+
+    /**
+     * Browser auth step 1: get a token and hand the approval URL to the UI.
+     * Returns false when the key/secret themselves are rejected.
+     */
+    fun startLastFmLink(context: android.content.Context, key: String, secret: String) {
         viewModelScope.launch(Dispatchers.IO) {
             _busy.value = true
-            val sk = LastFm.mobileSession(key.trim(), secret.trim(), user.trim(), password)
-            if (sk != null) {
-                // Password is deliberately NOT stored — only the session key.
+            val token = LastFm.requestToken(key.trim(), secret.trim())
+            if (token != null) {
+                _lfLink.value = token
+                _notice.value = "Approve LyricTag in the browser, then come back and tap “Finish sign-in”."
+            } else {
+                _notice.value = "Last.fm rejected the API key — check key and secret."
+            }
+            _busy.value = false
+        }
+    }
+
+    fun lastFmAuthUrl(key: String): String? {
+        val token = _lfLink.value ?: return null
+        return "https://www.last.fm/api/auth/?api_key=${key.trim()}&token=$token"
+    }
+
+    /** Browser auth step 2 (after user approval): session key, no password ever stored. */
+    fun finishLastFmLink(context: android.content.Context, key: String, secret: String) {
+        val token = _lfLink.value
+        if (token == null) {
+            _notice.value = "Tap “Connect with browser” first."
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            _busy.value = true
+            val session = LastFm.fetchSession(key.trim(), secret.trim(), token)
+            if (session != null) {
                 ScrobbleManager.prefs(context).edit()
                     .putString("lf_key", key.trim())
                     .putString("lf_secret", secret.trim())
-                    .putString("lf_user", user.trim())
-                    .putString("lf_session", sk)
+                    .putString("lf_user", session.second)
+                    .putString("lf_session", session.first)
                     .apply()
-                _notice.value = "Last.fm connected as $user."
+                _lfLink.value = null
+                _notice.value = "Last.fm connected as ${session.second}."
             } else {
-                _notice.value = "Last.fm login failed — check key, user and password."
+                _notice.value = "Not approved yet — approve in the browser, then retry."
             }
             _busy.value = false
         }
@@ -112,15 +140,12 @@ fun ScrobbleScreen(vm: ScrobbleViewModel, enabled: Boolean, onEnabled: (Boolean)
     var lbToken by remember { mutableStateOf("") }
     var lfKey by remember { mutableStateOf("") }
     var lfSecret by remember { mutableStateOf("") }
-    var lfUser by remember { mutableStateOf("") }
-    var lfPass by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         val p = ScrobbleManager.prefs(context)
         if (p.getString("lb_token", "").isNullOrBlank().not()) lbToken = "••••••"
         lfKey = p.getString("lf_key", "").orEmpty()
         lfSecret = if (p.getString("lf_secret", "").isNullOrBlank()) "" else "••••••"
-        lfUser = p.getString("lf_user", "").orEmpty()
     }
 
     notice?.let { n ->
@@ -213,7 +238,7 @@ fun ScrobbleScreen(vm: ScrobbleViewModel, enabled: Boolean, onEnabled: (Boolean)
         Text("Last.fm", style = MaterialTheme.typography.titleMedium)
         Text(
             "Needs your own free API key (last.fm/api/account/create). " +
-                "Your password is used once to log in and never stored.",
+                "Sign-in happens in your browser — the password never touches this app.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -221,17 +246,40 @@ fun ScrobbleScreen(vm: ScrobbleViewModel, enabled: Boolean, onEnabled: (Boolean)
             label = { Text("API key") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(value = lfSecret, onValueChange = { lfSecret = it },
             label = { Text("Shared secret") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = lfUser, onValueChange = { lfUser = it },
-            label = { Text("Username") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = lfPass, onValueChange = { lfPass = it },
-            label = { Text("Password (used once)") }, singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            modifier = Modifier.fillMaxWidth())
+        val lfToken by vm.lfLink.collectAsState()
         Button(
-            onClick = { vm.connectLastFm(context, lfKey, lfSecret, lfUser, lfPass); lfPass = "" },
-            enabled = !busy && lfKey.isNotBlank() && lfUser.isNotBlank() && lfPass.isNotBlank(),
+            onClick = { vm.startLastFmLink(context, lfKey, lfSecret) },
+            enabled = !busy && lfKey.isNotBlank() && lfSecret.isNotBlank(),
             modifier = Modifier.fillMaxWidth(),
-        ) { Text("Connect Last.fm") }
+        ) { Text("Connect with browser") }
+        if (lfToken != null) {
+            Text(
+                "After approving in the browser, come back here.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedButton(
+                onClick = {
+                    vm.lastFmAuthUrl(lfKey)?.let { url ->
+                        try {
+                            context.startActivity(
+                                android.content.Intent(
+                                    android.content.Intent.ACTION_VIEW,
+                                    android.net.Uri.parse(url),
+                                ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                        } catch (_: Throwable) {
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Open Last.fm approval page") }
+            Button(
+                onClick = { vm.finishLastFmLink(context, lfKey, lfSecret) },
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Finish sign-in") }
+        }
 
         OutlinedButton(onClick = { vm.disconnect(context) }, modifier = Modifier.fillMaxWidth()) {
             Text("Remove scrobbling accounts")
