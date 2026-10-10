@@ -26,8 +26,12 @@ class PlaybackReceiver : BroadcastReceiver() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
+        Log.i(TAG, "playback intent: ${intent.action}")
         val appContext = context.applicationContext
-        if (!ScrobbleManager.isEnabled(appContext)) return
+        if (!ScrobbleManager.isEnabled(appContext)) {
+            Log.i(TAG, "ignored: scrobbling disabled")
+            return
+        }
         try {
             val app = LyricTagApp.of(appContext)
             when (intent.action) {

@@ -106,9 +106,13 @@ object ScrobbleManager {
         context: Context, db: AppDatabase, np: NowPlaying, playedSec: Long,
     ) {
         if (!isEnabled(context)) return
-        if (np.title.isBlank()) return
+        if (np.title.isBlank()) {
+            Log.i(TAG, "skip: blank title")
+            return
+        }
         val durSec = np.durationMs / 1000
         val qualifies = playedSec >= 30 && (playedSec >= 240 || (durSec > 0 && playedSec * 2 >= durSec))
+        Log.i(TAG, "evaluate ${np.title}: played=${playedSec}s dur=${durSec}s qualifies=$qualifies")
         if (!qualifies) return
         scope.launch {
             try {
