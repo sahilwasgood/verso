@@ -32,9 +32,10 @@ class LyricTagApp : Application() {
     }
     val work: WorkManager by lazy { WorkManager.getInstance(this) }
 
-    /** Clears cached lyrics (blocking — call off the main thread). */
+    /** Clears cached lyrics + artwork URLs (blocking — call off the main thread). */
     fun clearLyricCache() {
         db.lyricsCache().clear()
+        db.artCache().clear()
         kotlinx.coroutines.runBlocking { db.tracks().resetCached() }
     }
 

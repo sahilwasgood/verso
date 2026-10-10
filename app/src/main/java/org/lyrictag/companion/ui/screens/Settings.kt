@@ -79,7 +79,7 @@ fun SettingsScreen(
         Row2("Dynamic (wallpaper) color", dynamicColor, onDynamicColor)
         Text("Storage", style = MaterialTheme.typography.titleMedium)
         Text("Lyric cache: $cacheSize", style = MaterialTheme.typography.bodyMedium)
-        OutlinedButton(onClick = onClearCache) { Text("Clear lyric cache") }
+        OutlinedButton(onClick = onClearCache) { Text("Clear caches") }
         Text("Privacy", style = MaterialTheme.typography.titleMedium)
         Text(privacyText, style = MaterialTheme.typography.bodyMedium)
     }

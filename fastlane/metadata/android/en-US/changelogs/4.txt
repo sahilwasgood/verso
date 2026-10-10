@@ -1,0 +1,7 @@
+Album art, metadata fixing and a Poweramp look:
+- Album covers (iTunes + Deezer) in lists and track pages
+- "Fix all metadata" for untagged/file-dump tracks (MusicBrainz + iTunes)
+- "Allow file changes" one-tap setup for tag/lyrics writes
+- Poweramp navy/orange theme, smoother lists and progress
+- Faster parallel fetching; now-playing song jumps the batch queue
+- Scrobbling that survives app restarts, with no double scrobbles
