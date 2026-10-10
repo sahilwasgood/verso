@@ -153,6 +153,45 @@ fun ScrobbleScreen(vm: ScrobbleViewModel, enabled: Boolean, onEnabled: (Boolean)
         )
         if (pending > 0) Text("$pending queued", style = MaterialTheme.typography.bodyMedium)
 
+        Text("Playback tracking", style = MaterialTheme.typography.titleMedium)
+        // Re-checked on every resume (user may grant access in Settings).
+        var listenerOn by remember { mutableStateOf(false) }
+        val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+        androidx.compose.runtime.DisposableEffect(lifecycle) {
+            val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
+                if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                    listenerOn = androidx.core.app.NotificationManagerCompat
+                        .getEnabledListenerPackages(context)
+                        .contains(context.packageName)
+                }
+            }
+            lifecycle.addObserver(obs)
+            onDispose { lifecycle.removeObserver(obs) }
+        }
+        Text(
+            if (listenerOn) "Notification access: on — playback is followed directly."
+            else "Notification access: off — tracking relies on Poweramp's broadcasts, " +
+                "which some builds don't send. Grant it for reliable scrobbling.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (!listenerOn) {
+            OutlinedButton(
+                onClick = {
+                    try {
+                        context.startActivity(
+                            android.content.Intent(
+                                android.provider.Settings
+                                    .ACTION_NOTIFICATION_LISTENER_SETTINGS
+                            ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        )
+                    } catch (_: Throwable) {
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Grant notification access") }
+        }
+
         Text("ListenBrainz", style = MaterialTheme.typography.titleMedium)
         Text(
             "Free, open, no API key needed — paste your user token " +

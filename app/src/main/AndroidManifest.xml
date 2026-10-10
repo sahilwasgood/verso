@@ -55,5 +55,18 @@
             </intent-filter>
         </receiver>
 
+        <!-- MediaSession fallback for scrobbling on builds that don't emit
+             track broadcasts (verified on Poweramp trial build-1025).
+             User-granted via system notification-access Settings. -->
+        <service
+            android:name=".scrobble.PlaybackListenerService"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
     </application>
 </manifest>
