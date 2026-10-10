@@ -1,6 +1,7 @@
 package org.lyrictag.companion.scrobble
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,6 +33,32 @@ object ScrobbleManager {
 
     @Volatile private var current: NowPlaying? = null
 
+    // The in-memory `current` dies with the process (receivers wake us per
+    // event), so mirror it in prefs: a track that played minutes ago still
+    // scrobbles when the *next* event arrives in a fresh process.
+    private fun persistCurrent(p: SharedPreferences, np: NowPlaying?) {
+        p.edit()
+            .putString("np_title", np?.title)
+            .putString("np_artist", np?.artist)
+            .putString("np_album", np?.album)
+            .putLong("np_dur", np?.durationMs ?: -1L)
+            .putLong("np_started", np?.startedAtSec ?: -1L)
+            .apply()
+    }
+
+    private fun readPersisted(p: SharedPreferences): NowPlaying? {
+        val started = p.getLong("np_started", -1L)
+        val title = p.getString("np_title", null)
+        if (started < 0 || title.isNullOrEmpty()) return null
+        return NowPlaying(
+            title = title,
+            artist = p.getString("np_artist", null).orEmpty(),
+            album = p.getString("np_album", null).orEmpty(),
+            durationMs = p.getLong("np_dur", -1L).takeIf { it >= 0 } ?: 0L,
+            startedAtSec = started,
+        )
+    }
+
     fun prefs(context: Context) =
         context.getSharedPreferences("lyrictag", Context.MODE_PRIVATE)
 
@@ -42,11 +69,12 @@ object ScrobbleManager {
 
     /** Called when a new track starts (or resumes) in Poweramp. */
     fun onTrackStarted(context: Context, db: AppDatabase, np: NowPlaying) {
-        // The previous track just ended — evaluate it first.
-        current?.let { prev ->
-            maybeScrobble(context, db, prev, playedSec = nowSec() - prev.startedAtSec)
-        }
+        // The previous track just ended — evaluate it first (falling back
+        // to the persisted one when this process is fresh).
+        val prev = current ?: readPersisted(prefs(context))
         current = np
+        persistCurrent(prefs(context), np)
+        prev?.let { maybeScrobble(context, db, it, playedSec = nowSec() - it.startedAtSec) }
         // Now-playing updates (fire and forget).
         scope.launch {
             try {
@@ -68,10 +96,10 @@ object ScrobbleManager {
 
     /** Called on pause/stop with the player's reported position (seconds). */
     fun onPaused(context: Context, db: AppDatabase, positionSec: Long) {
-        current?.let { prev ->
-            maybeScrobble(context, db, prev, playedSec = positionSec)
-            current = null
-        }
+        val prev = current ?: readPersisted(prefs(context))
+        current = null
+        persistCurrent(prefs(context), null)
+        prev?.let { maybeScrobble(context, db, it, playedSec = positionSec) }
     }
 
     private fun maybeScrobble(
@@ -84,14 +112,19 @@ object ScrobbleManager {
         if (!qualifies) return
         scope.launch {
             try {
-                db.scrobbles().enqueue(
-                    ScrobbleEntity(
-                        title = np.title, artist = np.artist,
-                        album = np.album.ifBlank { null },
-                        durationMs = np.durationMs.takeIf { it > 0 },
-                        listenedAtSec = np.startedAtSec,
+                // Same (track, start time) twice = process-death double
+                // delivery; one listen per actual play.
+                if (db.scrobbles().exists(np.title, np.artist, np.startedAtSec) == 0) {
+                    db.scrobbles().enqueue(
+                        ScrobbleEntity(
+                            title = np.title, artist = np.artist,
+                            album = np.album.ifBlank { null },
+                            durationMs = np.durationMs.takeIf { it > 0 },
+                            listenedAtSec = np.startedAtSec,
+                        )
                     )
-                )
+                    Log.i(TAG, "queued scrobble: ${np.title}")
+                }
             } catch (t: Throwable) {
                 Log.w(TAG, "enqueue failed", t)
             }
@@ -126,8 +159,10 @@ object ScrobbleManager {
                     }
                     // Drop only when at least one service accepted it; a total
                     // failure keeps it queued for the next flush (offline-safe).
-                    if (ok) db.scrobbles().remove(e.id)
-                    else break
+                    if (ok) {
+                        db.scrobbles().remove(e.id)
+                        Log.i(TAG, "scrobbled: ${e.title}")
+                    } else break
                 }
             } catch (t: Throwable) {
                 Log.w(TAG, "flush failed", t)

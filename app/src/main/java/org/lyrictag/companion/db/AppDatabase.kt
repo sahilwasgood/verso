@@ -130,6 +130,9 @@ interface ScrobbleDao {
     @Insert
     suspend fun enqueue(e: ScrobbleEntity)
 
+    @Query("SELECT COUNT(*) FROM scrobble_queue WHERE title = :title AND artist = :artist AND listenedAtSec = :listenedAt")
+    suspend fun exists(title: String, artist: String, listenedAt: Long): Int
+
     @Query("SELECT * FROM scrobble_queue ORDER BY id LIMIT 100")
     suspend fun oldest(): List<ScrobbleEntity>
 
