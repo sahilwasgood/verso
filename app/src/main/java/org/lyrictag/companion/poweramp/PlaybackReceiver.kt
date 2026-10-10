@@ -39,6 +39,12 @@ class PlaybackReceiver : BroadcastReceiver() {
                     val track: Bundle = intent.getBundleExtra("track") ?: return
                     val title = track.getString(PowerampContract.TRACK_TITLE).orEmpty()
                     if (title.isBlank()) return
+                    // NOTE: Poweramp's ts is System.currentTimeMillis() (MILLIS);
+                    // treating it as seconds underflows played time and no
+                    // track ever qualifies (verified on-device).
+                    val startedMs = intent.getLongExtra(
+                        "ts", System.currentTimeMillis()
+                    )
                     ScrobbleManager.onTrackStarted(
                         appContext, app.db,
                         ScrobbleManager.NowPlaying(
@@ -46,7 +52,7 @@ class PlaybackReceiver : BroadcastReceiver() {
                             artist = track.getString(PowerampContract.TRACK_ARTIST).orEmpty(),
                             album = track.getString(PowerampContract.TRACK_ALBUM).orEmpty(),
                             durationMs = track.getInt(PowerampContract.TRACK_DURATION_MS, 0).toLong(),
-                            startedAtSec = intent.getLongExtra("ts", System.currentTimeMillis() / 1000),
+                            startedAtSec = startedMs / 1000,
                         ),
                     )
                 }
