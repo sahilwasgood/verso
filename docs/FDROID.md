@@ -12,17 +12,17 @@ IssueTracker: https://github.com/lyrictag/lyrictag/issues
 AutoName: LyricTag
 Description: |-
   Lyrics & metadata companion for Poweramp. Finds missing lyrics (plain +
-  synced LRC) from free sources, flags incomplete tags, reviews changes
-  before writing, embeds or saves .lrc files. Offline-first, no tracking,
-  no Play Services.
+  synced LRC) from free sources, fixes incomplete tags with review,
+  fetches album art, embeds or saves .lrc files, and scrobbles to
+  ListenBrainz / Last.fm. Offline-first, no tracking, no Play Services.
 
 RepoType: git
 Repo: https://github.com/lyrictag/lyrictag
 
 Builds:
-  - versionName: 0.3.0
-    versionCode: 3
-    commit: v0.3.0
+  - versionName: 0.4.0
+    versionCode: 4
+    commit: v0.4.0
     subdir: .
     gradle:
       - yes
@@ -30,8 +30,8 @@ Builds:
 
 AutoUpdateMode: Version v%v
 UpdateCheckMode: Tags
-CurrentVersion: 0.3.0
-CurrentVersionCode: 3
+CurrentVersion: 0.4.0
+CurrentVersionCode: 4
 ```
 
 Checklist against the current Inclusion Policy:
@@ -42,5 +42,5 @@ Checklist against the current Inclusion Policy:
 - [x] No bundled API keys (Last.fm/ListenBrainz are user-supplied)
 - [x] Fastlane metadata present (fastlane/metadata/android/en-US/)
 - [x] Reproducible-friendly Gradle config (pinned versions, no timestamps)
-- [ ] Tag v0.3.0 + GitHub release (maintainer step)
+- [ ] Tag v0.4.0 + GitHub release (maintainer step)
 - [ ] Submit merge request to fdroiddata (maintainer step)
