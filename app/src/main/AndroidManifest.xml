@@ -16,12 +16,12 @@
     </queries>
 
     <application
-        android:name=".LyricTagApp"
+        android:name=".VersoApp"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.LyricTag">
+        android:theme="@style/Theme.Verso">
 
         <activity
             android:name=".MainActivity"

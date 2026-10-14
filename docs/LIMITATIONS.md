@@ -16,7 +16,7 @@ Access rules (verified on-device, Poweramp full version + trial build 1025):
 - If a build ever does gate reads, the official flow is
   `ACTION_ASK_FOR_DATA_PERMISSION` with the `pak` extra — kept as the
   "Match my Poweramp library" button (harmless no-op when unreadable).
-- LyricTag **never writes** to the provider (writes can corrupt Poweramp's DB).
+- Verso **never writes** to the provider (writes can corrupt Poweramp's DB).
 
 Scan scope order (first available wins):
 1. Folders explicitly picked in Settings → Library (manual override).

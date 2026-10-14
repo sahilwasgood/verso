@@ -1,4 +1,4 @@
-# Technical Findings — LyricTag Companion for Poweramp
+# Technical Findings — Verso (formerly LyricTag)
 
 Date: 2026-10-06. Verified against primary sources (not memory).
 

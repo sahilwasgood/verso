@@ -7,11 +7,11 @@ plugins {
 }
 
 android {
-    namespace = "org.lyrictag.companion"
+    namespace = "com.verso.music"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "org.lyrictag.companion"
+        applicationId = "com.verso.music"
         minSdk = 26
         targetSdk = 35
         versionCode = 4

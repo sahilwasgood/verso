@@ -6,10 +6,10 @@ Status: ready to submit. This file drafts the `fdroiddata` metadata entry.
 Categories:
   - Music & Audio
 License: Apache-2.0
-WebSite: https://github.com/lyrictag/lyrictag
-SourceCode: https://github.com/lyrictag/lyrictag
-IssueTracker: https://github.com/lyrictag/lyrictag/issues
-AutoName: LyricTag
+WebSite: https://github.com/sahilwasgood/verso
+SourceCode: https://github.com/sahilwasgood/verso
+IssueTracker: https://github.com/sahilwasgood/verso/issues
+AutoName: Verso
 Description: |-
   Lyrics & metadata companion for Poweramp. Finds missing lyrics (plain +
   synced LRC) from free sources, fixes incomplete tags with review,
@@ -17,7 +17,7 @@ Description: |-
   ListenBrainz / Last.fm. Offline-first, no tracking, no Play Services.
 
 RepoType: git
-Repo: https://github.com/lyrictag/lyrictag
+Repo: https://github.com/sahilwasgood/verso
 
 Builds:
   - versionName: 0.4.0

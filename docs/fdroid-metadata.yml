@@ -7,11 +7,11 @@ Categories:
   - Music & Audio
 License: Apache-2.0
 AuthorName: sahilwasgood
-WebSite: https://github.com/sahilwasgood/lyrictag
-SourceCode: https://github.com/sahilwasgood/lyrictag
-IssueTracker: https://github.com/sahilwasgood/lyrictag/issues
+WebSite: https://github.com/sahilwasgood/verso
+SourceCode: https://github.com/sahilwasgood/verso
+IssueTracker: https://github.com/sahilwasgood/verso/issues
 
-AutoName: LyricTag
+AutoName: Verso
 
 Summary: Lyrics & metadata companion for music players
 Description: |-
@@ -21,7 +21,7 @@ Description: |-
   Offline-first, no tracking, no Play Services.
 
 RepoType: git
-Repo: https://github.com/sahilwasgood/lyrictag
+Repo: https://github.com/sahilwasgood/verso
 
 Builds:
   - versionName: 0.4.0

@@ -1,10 +1,10 @@
-# LyricTag — companion for Poweramp
+# Verso — lyrics & metadata for your music
 
 A focused, privacy-respecting companion that finds, fixes and manages **lyrics
 and missing metadata** for your local music library, and serves lyrics to
 [Poweramp](https://powerampapp.com/) through its official plugin API.
 
-Poweramp remains the player. LyricTag is the librarian.
+Your player stays the player. Verso is the librarian.
 
 ## What it does
 
