@@ -1,0 +1,38 @@
+# F-Droid submission metadata — copy to fdroiddata/metadata/<package>.yml
+# Package name changes if the app is renamed (see README).
+# Maintainer steps: create GitHub repo -> push + tag v0.4.0 ->
+# open fdroiddata merge request adding this file.
+
+Categories:
+  - Music & Audio
+License: Apache-2.0
+AuthorName: sahilwasgood
+WebSite: https://github.com/sahilwasgood/lyrictag
+SourceCode: https://github.com/sahilwasgood/lyrictag
+IssueTracker: https://github.com/sahilwasgood/lyrictag/issues
+
+AutoName: LyricTag
+
+Summary: Lyrics & metadata companion for music players
+Description: |-
+  Finds missing lyrics (plain + synced LRC) from free sources, fixes
+  incomplete tags with review, fetches album art, and scrobbles to
+  ListenBrainz / Last.fm. Works with Poweramp and any local library.
+  Offline-first, no tracking, no Play Services.
+
+RepoType: git
+Repo: https://github.com/sahilwasgood/lyrictag
+
+Builds:
+  - versionName: 0.4.0
+    versionCode: 4
+    commit: v0.4.0
+    subdir: .
+    gradle:
+      - yes
+    prebuild: echo sdk.dir=$ANDROID_HOME > local.properties
+
+AutoUpdateMode: Version v%v
+UpdateCheckMode: Tags
+CurrentVersion: 0.4.0
+CurrentVersionCode: 4
