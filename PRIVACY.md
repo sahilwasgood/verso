@@ -1,4 +1,4 @@
-# Privacy Policy — LyricTag
+# Privacy Policy - LyricTag
 
 LyricTag is offline-first and collects nothing.
 

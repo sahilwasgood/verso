@@ -1,11 +1,11 @@
-# Technical Findings — Verso (formerly LyricTag)
+# Technical Findings - Verso (formerly LyricTag)
 
 Date: 2026-10-06. Verified against primary sources (not memory).
 
 ## 1. Poweramp Lyrics Plugin API (authoritative: github.com/maxmpz/powerampapi)
 
 Build 948+ supports external lyrics (plain + LRC) via **directed broadcast intents**
-(sent to one specific plugin receiver — "broadcast" is quoted in the official docs).
+(sent to one specific plugin receiver - "broadcast" is quoted in the official docs).
 
 | Item | Value |
 |---|---|
@@ -36,7 +36,7 @@ sufficient for search (title/artist/album/duration).
   Document the limitation in README + in-app ("Poweramp library browsing inside
   this app is not possible via public API; folders you select are scanned").
 - MediaBrowserCompat/MediaSession give only the now-playing queue (≤800 items),
-  not a library — not useful for full scans.
+  not a library - not useful for full scans.
 
 ## 3. Lyrics source: LRCLIB (lrclib.net)
 
@@ -48,7 +48,7 @@ sufficient for search (title/artist/album/duration).
   `Lrclib-*` headers. No key to leak → no secret-management problem.
 - Legally usable for this purpose: public community DB with publish/flag flow;
   attribute via Poweramp `info_line` + in-app source labels. (We only read.)
-- Note: duration in seconds for `/api/get` — convert from ms.
+- Note: duration in seconds for `/api/get` - convert from ms.
 
 ## 4. Metadata read/write: jaudiotagger `net.jthink:jaudiotagger:3.0.1`
 
@@ -67,7 +67,7 @@ sufficient for search (title/artist/album/duration).
 ## 5. Android platform decisions (target 2026)
 
 - minSdk 26 / targetSdk 35 (AGP 8.7, JDK 17). Notification/post-33 permission
-  model respected. No Play Services, no Firebase — F-Droid clean.
+  model respected. No Play Services, no Firebase - F-Droid clean.
 - Storage: `READ_MEDIA_AUDIO` (API 33+) / `READ_EXTERNAL_STORAGE` (≤32) for
   MediaStore scan; SAF `ACTION_OPEN_DOCUMENT_TREE` for user folders and for
   write access on API 29+ scoped storage; persist URI grants.
@@ -75,7 +75,7 @@ sufficient for search (title/artist/album/duration).
   scan + batch lyric fetch jobs: cancellable, constrained (Unmetered/Charging
   optional), observable progress. No foreground-service abuse.
 - DB: Room (paged lists via Paging 3 for 10k+ track libraries).
-- DI: manual constructor injection via Application-scoped container (no Hilt —
+- DI: manual constructor injection via Application-scoped container (no Hilt -
   fewer deps, fully source-buildable, easier F-Droid audit).
 - UI: Jetpack Compose BOM + Material3, dynamic color w/ static fallback palette,
   single-activity + Navigation Compose, UDF (ViewModel + StateFlow).
@@ -89,15 +89,15 @@ sufficient for search (title/artist/album/duration).
 - No prebuilt jars; reproducible-friendly Gradle config (no timestamps in
   archives, pinned versions via version catalog).
 - Fastlane metadata dir + changelogs; `fdroid` build flavor without any
-  non-free bits (single flavor suffices here — nothing to strip).
+  non-free bits (single flavor suffices here - nothing to strip).
 - Anti-features: none expected (network use is user-triggered; add
-  `NonFreeNet`? No — LRCLIB is a free service with open API; no anti-feature
+  `NonFreeNet`? No - LRCLIB is a free service with open API; no anti-feature
   applies, but the README documents network use explicitly).
 - License audit doc (`docs/DEPENDENCIES.md`) listing every dependency + license.
 
-## 7. Prior art (behavioral reference only — no code copied)
+## 7. Prior art (behavioral reference only - no code copied)
 
 - "Lyrics for Poweramp" (abhishekabhi789, Play): confirms the exact UX shape
-  users expect — auto-fetch on NEED_LYRICS, library browse, LRC editor, save
+  users expect - auto-fetch on NEED_LYRICS, library browse, LRC editor, save
   as file / embed / push to Poweramp. Our implementation is independently
   written from the official API example + docs above.

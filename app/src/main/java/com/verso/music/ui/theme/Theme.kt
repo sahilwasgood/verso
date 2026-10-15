@@ -12,7 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 // Poweramp-inspired palette: deep-navy dark, warm orange accent.
-// (Static fallback is now the default look — dynamic wallpaper theming
+// (Static fallback is now the default look - dynamic wallpaper theming
 // is opt-in via the `dynamicColor` flag.)
 private val PowerampDark = darkColorScheme(
     primary = Color(0xFFFF9E40),

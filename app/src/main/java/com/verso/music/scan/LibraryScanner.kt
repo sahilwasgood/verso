@@ -174,7 +174,7 @@ class LibraryScanner(
 
     private fun hasSidecar(path: String): Boolean {
         val base = path.substringBeforeLast('.')
-        // Poweramp reads .lrc/.txt/.smi/.srt next to the track — mirror that.
+        // Poweramp reads .lrc/.txt/.smi/.srt next to the track - mirror that.
         return File("$base.lrc").exists() || File("$base.txt").exists() ||
             File("$base.smi").exists() || File("$base.srt").exists()
     }

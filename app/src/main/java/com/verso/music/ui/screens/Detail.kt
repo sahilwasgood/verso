@@ -113,7 +113,7 @@ class DetailViewModel(
 
     /**
      * Writes only fields that are currently missing or suspicious
-     * (MetadataRules ONLY_EMPTY policy) — never overwrites good tags.
+     * (MetadataRules ONLY_EMPTY policy) - never overwrites good tags.
      */
     fun applyMetadata(
         path: String,
@@ -218,7 +218,7 @@ fun TrackDetailScreen(path: String, vm: DetailViewModel, track: com.verso.music.
             s.meta.forEach { m ->
                 Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                     Text(
-                        "${m.artist ?: "?"} — ${m.title ?: "?"}",
+                        "${m.artist ?: "?"} - ${m.title ?: "?"}",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     Text(
@@ -233,7 +233,7 @@ fun TrackDetailScreen(path: String, vm: DetailViewModel, track: com.verso.music.
                         "year".takeIf { track?.year.isNullOrBlank() && !m.year.isNullOrBlank() },
                     )
                     Text(
-                        if (fills.isEmpty()) "Tags already filled — nothing would change."
+                        if (fills.isEmpty()) "Tags already filled - nothing would change."
                         else "Would fill: ${fills.joinToString(", ")}.",
                         style = MaterialTheme.typography.bodySmall,
                     )
@@ -262,7 +262,7 @@ fun TrackDetailScreen(path: String, vm: DetailViewModel, track: com.verso.music.
                         beforeAfter.joinToString("\n\n") { (label, pair) ->
                             val (before, after) = pair
                             val change = before == after || after.isNullOrBlank()
-                            "$label\nBEFORE ${before ?: "—"}\nAFTER " +
+                            "$label\nBEFORE ${before ?: "-"}\nAFTER " +
                                 (if (change) "(unchanged)" else after)
                         } + "\n\nOnly empty tags are filled. Existing values are kept."
                     )
@@ -284,7 +284,7 @@ fun TrackDetailScreen(path: String, vm: DetailViewModel, track: com.verso.music.
         } else if (s.fromCache) {
             Text(
                 "Lyrics for this track are already saved on-device (e.g. fetched for Poweramp). " +
-                    "Pick a version below to embed into the file or save as .lrc — or retry for fresh results.",
+                    "Pick a version below to embed into the file or save as .lrc - or retry for fresh results.",
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
@@ -303,7 +303,7 @@ fun TrackDetailScreen(path: String, vm: DetailViewModel, track: com.verso.music.
             s.candidates.forEach { c ->
                 Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                     Text(
-                        "${c.result.artist} — ${c.result.title} · ${c.result.source}",
+                        "${c.result.artist} - ${c.result.title} · ${c.result.source}",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     Text(

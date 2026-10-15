@@ -6,7 +6,7 @@ the maintainers (see README). Do not file public issues for security bugs.
 Scope of review (done per release):
 
 - exported components: launcher activity (with LYRICS_LINK filter) and the
-  Poweramp `LyricsRequestReceiver` only — both validate extras defensively.
+  Poweramp `LyricsRequestReceiver` only - both validate extras defensively.
 - intent handling: `realId`/`title` checked; no file paths accepted from
   Poweramp intents.
 - file writes: tag edits preserve unrelated fields/artwork, verify post-write

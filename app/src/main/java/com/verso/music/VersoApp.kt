@@ -32,7 +32,7 @@ class VersoApp : Application() {
     }
     val work: WorkManager by lazy { WorkManager.getInstance(this) }
 
-    /** Clears cached lyrics + artwork URLs (blocking — call off the main thread). */
+    /** Clears cached lyrics + artwork URLs (blocking - call off the main thread). */
     fun clearLyricCache() {
         db.lyricsCache().clear()
         db.artCache().clear()
@@ -43,7 +43,7 @@ class VersoApp : Application() {
     fun autoFetchEnabled(): Boolean =
         getSharedPreferences("lyrictag", MODE_PRIVATE).getBoolean("auto_fetch", true)
 
-    /** Human-readable cache size (blocking — call off the main thread). */
+    /** Human-readable cache size (blocking - call off the main thread). */
     fun lyricsCacheSize(): String {
         val n = db.lyricsCache().count()
         val kb = db.lyricsCache().bytes() / 1024

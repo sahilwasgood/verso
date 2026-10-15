@@ -63,7 +63,7 @@ class LyricsRepository(
         }.toMutableList()
         // Retry bare-titled ("Song (Slowed)" → "Song"): YTDL remix tags
         // match nothing, but the base song often exists. Scoring still
-        // applies, so a bad retry never outranks — or reaches — a real match.
+        // applies, so a bad retry never outranks - or reaches - a real match.
         if (all.isEmpty()) {
             val bare = title.replace(Regex("""\s*[\(\[].*?[\)\]]"""), "").trim()
             if (bare.length >= 3 && !bare.equals(title, ignoreCase = true)) {

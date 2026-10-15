@@ -7,7 +7,7 @@ import android.util.Log
 /**
  * Reads Poweramp's *documented* content provider (`content://com.maxmpz.audioplayer.data/…`).
  *
- * This is a public, documented API — not reverse engineering. It exposes the
+ * This is a public, documented API - not reverse engineering. It exposes the
  * exact folders and files Poweramp has in its library, so Verso can scope
  * its scan to genuinely the same set ("39" because Poweramp says 39).
  *
@@ -74,8 +74,8 @@ object PowerampLibrary {
     }
 
     /** True only when file listings answer (the folders table alone is not
-     * enough — Poweramp gates folders/#/files behind its data-access grant).
-     * NOTE: projections must be table-qualified — the provider joins
+     * enough - Poweramp gates folders/#/files behind its data-access grant).
+     * NOTE: projections must be table-qualified - the provider joins
      * folder_files/albums/artists, so bare `_id`/`name` throw
      * "ambiguous column" SQLiteException (official TableDefs qualifies them). */
     fun isReadable(context: Context): Boolean {

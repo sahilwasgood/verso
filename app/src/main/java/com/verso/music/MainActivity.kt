@@ -105,11 +105,11 @@ class MainActivity : ComponentActivity() {
                             composable("settings") {
                                 val selected = com.verso.music.scan.ScanFolders.selected(this@MainActivity)
                                 foldersSummary = if (selected.isEmpty())
-                                    "Automatic — your Poweramp library when available, else whole device"
+                                    "Automatic - your Poweramp library when available, else whole device"
                                 else if (selected.size == 1)
-                                    "Manual override — 1 folder: ${selected.first()}"
+                                    "Manual override - 1 folder: ${selected.first()}"
                                 else
-                                    "Manual override — ${selected.size} folders: ${selected.sorted().joinToString(", ")}"
+                                    "Manual override - ${selected.size} folders: ${selected.sorted().joinToString(", ")}"
                                 SettingsScreen(
                                     dynamicColor = dynamicColor,
                                     onDynamicColor = {
@@ -132,7 +132,7 @@ class MainActivity : ComponentActivity() {
                                     foldersSummary = foldersSummary,
                                     onOpenFolders = { nav.navigate("folders") },
                                     scrobbleSummary = if (scrobbleEnabled)
-                                        "On — scrobbling Poweramp playback"
+                                        "On - scrobbling Poweramp playback"
                                     else
                                         "Off",
                                     onOpenScrobble = { nav.navigate("scrobble") },

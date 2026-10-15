@@ -1,4 +1,4 @@
-LyricTag — companion for Poweramp
+LyricTag - companion for Poweramp
 Copyright 2026 the LyricTag contributors. Licensed under Apache-2.0 (see LICENSE).
 
 Third-party components and their licenses:
@@ -7,10 +7,10 @@ Third-party components and their licenses:
   official Poweramp API example by Maksim Petrov (github.com/maxmpz/powerampapi).
   Permissive plugin license, full text in poweramp/api/LICENSE-poweramp.txt.
   Our receiver/response implementation is independently written.
-- jaudiotagger (net.jthink:jaudiotagger) — LGPL-2.1-or-later, Maven Central.
+- jaudiotagger (net.jthink:jaudiotagger) - LGPL-2.1-or-later, Maven Central.
 - AndroidX libraries (core, activity, compose, material3, navigation, lifecycle,
-  room, work, paging) — Apache-2.0.
-- OkHttp / Retrofit — Apache-2.0.
-- kotlinx.coroutines / kotlinx.serialization / Kotlin stdlib — Apache-2.0.
+  room, work, paging) - Apache-2.0.
+- OkHttp / Retrofit - Apache-2.0.
+- kotlinx.coroutines / kotlinx.serialization / Kotlin stdlib - Apache-2.0.
 - LRCLIB (lrclib.net) is a network service, not bundled code; lyrics returned
   belong to their respective rights holders and are cached on-device only.

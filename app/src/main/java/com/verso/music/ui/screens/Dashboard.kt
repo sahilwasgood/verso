@@ -327,7 +327,7 @@ fun DashboardScreen(vm: DashboardViewModel) {
             }
             Text(
                 "Fixing tags, embedding lyrics and saving covers writes into your " +
-                    "music files — approve it once in Settings, then retry.",
+                    "music files - approve it once in Settings, then retry.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -343,7 +343,7 @@ fun DashboardScreen(vm: DashboardViewModel) {
             }
             Text(
                 "If Poweramp is installed, tapping asks for read-only access to its " +
-                    "library — approve it inside Poweramp, then tap Fix Library.",
+                    "library - approve it inside Poweramp, then tap Fix Library.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

@@ -12,7 +12,7 @@ import java.io.File
 /**
  * Shared metadata-apply core: writes only missing tags (ONLY_EMPTY),
  * re-reads the row, reports what changed. Used by the detail review
- * dialog and the fix-all batch — one policy, no drift.
+ * dialog and the fix-all batch - one policy, no drift.
  */
 suspend fun applyCandidate(
     dao: TrackDao,
@@ -39,7 +39,7 @@ suspend fun applyCandidate(
         rule.resolved(OverwritePolicy.ONLY_EMPTY)?.let { updates[field] = it }
     }
     if (updates.isEmpty()) {
-        "Nothing to fix — existing tags are already filled."
+        "Nothing to fix - existing tags are already filled."
     } else {
         val err = TagManager.write(File(path), updates)
         if (err == null) {

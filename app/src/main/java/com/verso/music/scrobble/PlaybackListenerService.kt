@@ -15,7 +15,7 @@ import com.verso.music.VersoApp
  * Some Poweramp builds don't emit track broadcasts to third parties
  * (verified: explicit TRACK_CHANGED never arrives on build-1025 despite
  * a registered receiver). This listener follows Poweramp's MediaSession
- * instead and feeds the same [ScrobbleManager] — the shared
+ * instead and feeds the same [ScrobbleManager] - the shared
  * take-and-evaluate structure means both sources can coexist without
  * double scrobbles (only one `current` exists at a time).
  *
@@ -64,7 +64,7 @@ class PlaybackListenerService : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: android.service.notification.StatusBarNotification?) {
-        // Poweramp reposts its notification on track change — cheap hook
+        // Poweramp reposts its notification on track change - cheap hook
         // to pick up session (re)creation without polling.
         if (sbn?.packageName == POWERAMP) refreshSessions()
     }

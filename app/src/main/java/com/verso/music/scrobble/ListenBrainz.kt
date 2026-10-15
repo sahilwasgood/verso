@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit
  * Endpoint facts: POST https://api.listenbrainz.org/1/submit-listens with
  * `Authorization: Token <user-token>`, body {listen_type, payload[{listened_at,
  * track_metadata{artist_name, track_name, release_name?, additional_info}}]}.
- * Token validation: GET /1/validate-token. No bundled secrets — the user
+ * Token validation: GET /1/validate-token. No bundled secrets - the user
  * pastes their own token from listenbrainz.org/settings.
  */
 object ListenBrainz {

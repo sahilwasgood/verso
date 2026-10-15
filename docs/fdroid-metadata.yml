@@ -1,4 +1,4 @@
-# F-Droid submission metadata — copy to fdroiddata/metadata/<package>.yml
+# F-Droid submission metadata - copy to fdroiddata/metadata/<package>.yml
 # Package name changes if the app is renamed (see README).
 # Maintainer steps: create GitHub repo -> push + tag v0.4.0 ->
 # open fdroiddata merge request adding this file.

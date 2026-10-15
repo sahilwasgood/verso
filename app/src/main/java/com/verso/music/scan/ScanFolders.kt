@@ -6,7 +6,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Which device folders Verso scans — mirrors Poweramp's own model, where
+ * Which device folders Verso scans - mirrors Poweramp's own model, where
  * only user-selected music folders are scanned (not the whole device).
  *
  * Poweramp exposes no public API for its folder list, so the user picks

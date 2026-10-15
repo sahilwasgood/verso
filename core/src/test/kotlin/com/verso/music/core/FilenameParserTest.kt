@@ -40,7 +40,7 @@ class FilenameParserTest {
             "Adnan Sami - Lift Karadey Video _ Kabhi To Nazar Milao.m4a"
         ).title)
         assertEquals("Concert", FilenameParser.parse("Concert _, Video").title)
-        // Bare leading Video is a real title — kept.
+        // Bare leading Video is a real title - kept.
         assertEquals("Video Killed the Radio Star", FilenameParser.parse(
             "Video Killed the Radio Star.mp3"
         ).title)

@@ -10,7 +10,7 @@ import android.provider.Settings
 /**
  * "All files access" gate for tag/lyrics/artwork writes (API 30+).
  * Plain File writes into shared Music folders fail without it; nothing
- * is requested silently — the user taps once and approves in Settings.
+ * is requested silently - the user taps once and approves in Settings.
  */
 object StorageAccess {
 

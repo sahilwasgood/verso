@@ -18,7 +18,7 @@ object FilenameParser {
     )
     private val TRAIL_MC = Regex("""(?i)[\s_\-]+mc$""")
     private val MULTI_SPACE = Regex("""\s+""")
-    private val DASH_SPLIT = Regex("""\s+[_–—-]\s+""")
+    private val DASH_SPLIT = Regex("""\s+[_-]\s+""")
 
     fun parse(fileName: String): Parsed {
         var s = fileName.substringAfterLast('/').substringBeforeLast('.')
@@ -50,11 +50,11 @@ object FilenameParser {
         t = TRAIL_MC.replace(t, "")
         // Bare video/audio only when glued to a separator ("A Video _ B").
         // (No lookbehind: JVM requires bounded length there.)
-        // A bare leading "Video Killed..." is a real title — keep it.
-        t = t.replace(Regex("""(?i)\b(videos?|audios?)\b\s*([,_–—-])""")) {
+        // A bare leading "Video Killed..." is a real title - keep it.
+        t = t.replace(Regex("""(?i)\b(videos?|audios?)\b\s*([,_-])""")) {
             it.groupValues[2]
         }
-        t = t.replace(Regex("""(?i)([,_–—-])\s*\b(videos?|audios?)\b""")) {
+        t = t.replace(Regex("""(?i)([,_-])\s*\b(videos?|audios?)\b""")) {
             it.groupValues[1]
         }
         t = t.replace(Regex("""\s*,\s*"""), ", ")

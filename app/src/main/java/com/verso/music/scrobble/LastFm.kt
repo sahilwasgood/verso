@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit
  * Browser auth: auth.getToken -> user approves at last.fm/api/auth ->
  * auth.getSession -> session key -> track.scrobble / track.updateNowPlaying.
  * All calls MD5-signed per Last.fm docs.
- * Get a free key at last.fm/api/account/create — nothing is bundled.
+ * Get a free key at last.fm/api/account/create - nothing is bundled.
  * (kotlinx.serialization, not org.json: the latter is an Android stub that
  * throws in local unit tests.)
  */
@@ -38,7 +38,7 @@ object LastFm {
      * Step 1 of browser auth: a one-time token. The user opens
      * https://www.last.fm/api/auth/?api_key=KEY&token=TOKEN, approves,
      * then step 2 exchanges it for a session key. (Password-based
-     * mobile auth is rejected for new API keys — verified 2026-10.)
+     * mobile auth is rejected for new API keys - verified 2026-10.)
      */
     suspend fun requestToken(apiKey: String, secret: String): String? =
         withContext(Dispatchers.IO) {

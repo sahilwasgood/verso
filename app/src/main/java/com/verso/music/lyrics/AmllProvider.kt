@@ -31,7 +31,7 @@ class AmllProvider(
             var root = ProviderHttp.get(client, url, LyricsRepository.USER_AGENT)
             var items = root?.get("data")?.jsonObject?.get("items")?.jsonArray
             if ((items == null || items.isEmpty()) && album.isNotBlank()) {
-                // Local album tags are often wrong (e.g. filename dumps) —
+                // Local album tags are often wrong (e.g. filename dumps) -
                 // retry unfiltered rather than missing a good match.
                 root = ProviderHttp.get(
                     client,

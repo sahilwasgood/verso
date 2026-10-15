@@ -46,7 +46,7 @@ interface LrcLibApi {
     ): List<LrcLibRecord>
 }
 
-/** ProviderA: LRCLIB — free, keyless, generous limits. */
+/** ProviderA: LRCLIB - free, keyless, generous limits. */
 class LrclibProvider(
     private val api: LrcLibApi,
     private val sourceName: String = "LRCLIB",
@@ -87,7 +87,7 @@ class LrclibProvider(
     }
 }
 
-/** LyricsProvider seam — future providers implement this. */
+/** LyricsProvider seam - future providers implement this. */
 interface LyricsProvider {
     suspend fun fetch(title: String, artist: String, album: String, durationMs: Int): List<LyricsResult>
 }

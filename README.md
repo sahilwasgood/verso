@@ -1,4 +1,4 @@
-# Verso — lyrics & metadata for your music
+# Verso - lyrics & metadata for your music
 
 A focused, privacy-respecting companion that finds, fixes and manages **lyrics
 and missing metadata** for your local music library, and serves lyrics to
@@ -10,10 +10,10 @@ Your player stays the player. Verso is the librarian.
 
 - Responds to Poweramp's `ACTION_NEED_LYRICS` requests (plain + LRC lyrics)
 - Matches **your actual Poweramp library** via its documented content provider
-  (after you approve read-only access inside Poweramp) — the count is real
+  (after you approve read-only access inside Poweramp) - the count is real
   because it comes from Poweramp, with whole-device scan as fallback
 - Finds missing lyrics from 5 free, keyless sources (LRCLIB, AMLL, KuGou,
-  Lyricify, LunaBeat), scored and reviewable — offline-first, only on your tap
+  Lyricify, LunaBeat), scored and reviewable - offline-first, only on your tap
 - Batch-fetch missing lyrics in the background (WorkManager, cancellable,
   4 tracks at a time; the now-playing song always jumps the queue)
 - Looks up incomplete tags via MusicBrainz + iTunes with before/after review;
@@ -29,7 +29,7 @@ Your player stays the player. Verso is the librarian.
 
 ## What it deliberately does NOT do
 
-- It does **not** touch Poweramp's private database — it only *reads* the
+- It does **not** touch Poweramp's private database - it only *reads* the
   documented public provider (`content://com.maxmpz.audioplayer.data`),
   and only after your approval. See [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
 - No analytics, no ads, no tracking, no Google Play Services.
@@ -59,6 +59,6 @@ docs/           findings, architecture, build, privacy, dependencies
 
 ## License
 
-Apache-2.0 — see [LICENSE](LICENSE). Third-party notices in [NOTICE](NOTICE).
+Apache-2.0 - see [LICENSE](LICENSE). Third-party notices in [NOTICE](NOTICE).
 Poweramp API constants are used under the permissive license in
 `poweramp/api/LICENSE-poweramp.txt` (same terms MaxMP grants plugin authors).

@@ -60,7 +60,7 @@ class ScrobbleViewModel(private val db: AppDatabase) : ViewModel() {
                 ScrobbleManager.prefs(context).edit().putString("lb_token", token.trim()).apply()
                 _notice.value = "ListenBrainz connected."
             } else {
-                _notice.value = "Token rejected — check it and retry."
+                _notice.value = "Token rejected - check it and retry."
             }
             _busy.value = false
         }
@@ -81,7 +81,7 @@ class ScrobbleViewModel(private val db: AppDatabase) : ViewModel() {
                 _lfLink.value = token
                 _notice.value = "Approve Verso in the browser, then come back and tap “Finish sign-in”."
             } else {
-                _notice.value = "Last.fm rejected the API key — check key and secret."
+                _notice.value = "Last.fm rejected the API key - check key and secret."
             }
             _busy.value = false
         }
@@ -112,7 +112,7 @@ class ScrobbleViewModel(private val db: AppDatabase) : ViewModel() {
                 _lfLink.value = null
                 _notice.value = "Last.fm connected as ${session.second}."
             } else {
-                _notice.value = "Not approved yet — approve in the browser, then retry."
+                _notice.value = "Not approved yet - approve in the browser, then retry."
             }
             _busy.value = false
         }
@@ -194,8 +194,8 @@ fun ScrobbleScreen(vm: ScrobbleViewModel, enabled: Boolean, onEnabled: (Boolean)
             onDispose { lifecycle.removeObserver(obs) }
         }
         Text(
-            if (listenerOn) "Notification access: on — playback is followed directly."
-            else "Notification access: off — tracking relies on Poweramp's broadcasts, " +
+            if (listenerOn) "Notification access: on - playback is followed directly."
+            else "Notification access: off - tracking relies on Poweramp's broadcasts, " +
                 "which some builds don't send. Grant it for reliable scrobbling.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -219,7 +219,7 @@ fun ScrobbleScreen(vm: ScrobbleViewModel, enabled: Boolean, onEnabled: (Boolean)
 
         Text("ListenBrainz", style = MaterialTheme.typography.titleMedium)
         Text(
-            "Free, open, no API key needed — paste your user token " +
+            "Free, open, no API key needed - paste your user token " +
                 "(listenbrainz.org → Settings).",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -238,7 +238,7 @@ fun ScrobbleScreen(vm: ScrobbleViewModel, enabled: Boolean, onEnabled: (Boolean)
         Text("Last.fm", style = MaterialTheme.typography.titleMedium)
         Text(
             "Needs your own free API key (last.fm/api/account/create). " +
-                "Sign-in happens in your browser — the password never touches this app.",
+                "Sign-in happens in your browser - the password never touches this app.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

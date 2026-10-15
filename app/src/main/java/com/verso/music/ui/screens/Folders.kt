@@ -110,7 +110,7 @@ fun FoldersScreen(vm: FoldersViewModel, onDone: () -> Unit) {
         Text("Music folders", style = MaterialTheme.typography.headlineSmall)
         Text(
             "When Poweramp is installed its own library folders are used automatically. " +
-                "Pick folders here only to override that — unselected folders are removed from the library. " +
+                "Pick folders here only to override that - unselected folders are removed from the library. " +
                 "Select nothing to scan the whole device.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

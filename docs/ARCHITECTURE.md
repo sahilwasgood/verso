@@ -2,7 +2,7 @@
 
 ```
 UI (Compose, MainActivity + screens/)
- └ ViewModels (Dashboard, Library, Detail) — StateFlow, UDF
+ └ ViewModels (Dashboard, Library, Detail) - StateFlow, UDF
  └ Repositories: LyricsRepository (providers → TrackMatcher scoring → cache)
     Tags: TagManager (jaudiotagger, verify-after-write)
     Scan: LibraryScanner (MediaStore enumerate → tag read → Room)

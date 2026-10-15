@@ -14,7 +14,7 @@ import com.verso.music.lyrics.LyricsRepository
 /**
  * Receives Poweramp ACTION_NEED_LYRICS and answers with ACTION_UPDATE_LYRICS.
  *
- * Exported (required — Poweramp sends an explicit intent here). Validates
+ * Exported (required - Poweramp sends an explicit intent here). Validates
  * realId/title before doing any work; heavy lifting happens on IO dispatcher.
  */
 class LyricsRequestReceiver : BroadcastReceiver() {
@@ -23,7 +23,7 @@ class LyricsRequestReceiver : BroadcastReceiver() {
         private const val TAG = "LyricsRequestReceiver"
     }
 
-    // ponytail: process-global scope is fine — receiver callbacks are fire-and-forget
+    // ponytail: process-global scope is fine - receiver callbacks are fire-and-forget
     // work items tracked by WorkManager/Repository, never by this scope.
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 

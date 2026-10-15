@@ -18,7 +18,7 @@ import com.verso.music.db.ScrobbleEntity
  * A track scrobbles when playback of it ends (next track / pause / stop)
  * after playing at least 30s AND (half its duration OR 4 minutes).
  * Queued offline with original timestamps; flushed on next playback event
- * or app start. All credentials are user-supplied (Settings) — nothing bundled.
+ * or app start. All credentials are user-supplied (Settings) - nothing bundled.
  */
 object ScrobbleManager {
 
@@ -71,7 +71,7 @@ object ScrobbleManager {
 
     /** Called when a new track starts (or resumes) in Poweramp. */
     fun onTrackStarted(context: Context, db: AppDatabase, np: NowPlaying) {
-        // The previous track just ended — evaluate it first (falling back
+        // The previous track just ended - evaluate it first (falling back
         // to the persisted one when this process is fresh).
         val prev = current ?: readPersisted(prefs(context))
         current = np
