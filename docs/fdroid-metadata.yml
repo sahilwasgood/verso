@@ -4,7 +4,7 @@
 # open fdroiddata merge request adding this file.
 
 Categories:
-  - Music & Audio
+  - Lyrics
 License: Apache-2.0
 AuthorName: sahilwasgood
 WebSite: https://github.com/sahilwasgood/verso
@@ -23,12 +23,11 @@ Builds:
   - versionName: 0.4.0
     versionCode: 4
     commit: 75078ec8bf278b0bdb6772d11d15616b6173b2e3
-    subdir: .
     gradle:
-      - yes
+      - 8.9
     prebuild: echo sdk.dir=$ANDROID_HOME > local.properties
 
-AutoUpdateMode: Version v%v
+AutoUpdateMode: Version
 UpdateCheckMode: Tags
 CurrentVersion: 0.4.0
 CurrentVersionCode: 4
