@@ -20,17 +20,26 @@ android {
 
     signingConfigs {
         // Release signing via environment (CI) or ~/.gradle/gradle.properties.
-        // Absent credentials -> release stays unsigned (assembleRelease still works for audit).
-        create("release") {
-            val f = System.getenv("LYRICTAG_STORE_FILE")
-                ?: project.findProperty("LYRICTAG_STORE_FILE") as? String
-            if (!f.isNullOrBlank()) {
+        // Created only when a keystore file is actually present, so plain
+        // checkouts (e.g. F-Droid buildserver) build unsigned without edits.
+        val f = System.getenv("VERSO_STORE_FILE")
+            ?: System.getenv("LYRICTAG_STORE_FILE")
+            ?: project.findProperty("VERSO_STORE_FILE") as? String
+            ?: project.findProperty("LYRICTAG_STORE_FILE") as? String
+        if (!f.isNullOrBlank() && file(f).exists()) {
+            create("release") {
                 storeFile = file(f)
-                storePassword = System.getenv("LYRICTAG_STORE_PASSWORD")
+                storePassword = System.getenv("VERSO_STORE_PASSWORD")
+                    ?: System.getenv("LYRICTAG_STORE_PASSWORD")
+                    ?: project.findProperty("VERSO_STORE_PASSWORD") as? String
                     ?: project.findProperty("LYRICTAG_STORE_PASSWORD") as? String
-                keyAlias = System.getenv("LYRICTAG_KEY_ALIAS")
+                keyAlias = System.getenv("VERSO_KEY_ALIAS")
+                    ?: System.getenv("LYRICTAG_KEY_ALIAS")
+                    ?: project.findProperty("VERSO_KEY_ALIAS") as? String
                     ?: project.findProperty("LYRICTAG_KEY_ALIAS") as? String
-                keyPassword = System.getenv("LYRICTAG_KEY_PASSWORD")
+                keyPassword = System.getenv("VERSO_KEY_PASSWORD")
+                    ?: System.getenv("LYRICTAG_KEY_PASSWORD")
+                    ?: project.findProperty("VERSO_KEY_PASSWORD") as? String
                     ?: project.findProperty("LYRICTAG_KEY_PASSWORD") as? String
             }
         }
@@ -45,8 +54,7 @@ android {
                 "proguard-rules.pro"
             )
             // Only sign when credentials are actually configured.
-            val cfg = signingConfigs.getByName("release")
-            if (cfg.storeFile?.exists() == true) signingConfig = cfg
+            signingConfigs.findByName("release")?.let { signingConfig = it }
         }
     }
 
