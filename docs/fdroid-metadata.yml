@@ -24,7 +24,7 @@ Builds:
     versionCode: 4
     commit: 5dee84d549d7122e6283f8312498e1dbe0d3c8ac
     gradle:
-      - '8.9'
+      - yes
     prebuild: echo sdk.dir=$ANDROID_HOME > local.properties
 
 AutoUpdateMode: Version
