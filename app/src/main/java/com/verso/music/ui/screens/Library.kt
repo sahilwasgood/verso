@@ -130,6 +130,8 @@ fun LibraryScreen(vm: LibraryViewModel, onTrack: (String) -> Unit) {
             ) { i ->
                 val t = lazyTracks[i] ?: return@items
                 // Cached after first load (Room URL + Coil disk cache).
+                // (Lint false positive: value IS assigned below.)
+                @Suppress("ProduceStateDoesNotAssignValue")
                 val art by androidx.compose.runtime.produceState<String?>(null, t.path) {
                     value = runCatching {
                         vm.artwork.artUrl(t.title.orEmpty(), t.artist.orEmpty())

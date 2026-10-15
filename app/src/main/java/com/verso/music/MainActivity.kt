@@ -96,6 +96,8 @@ class MainActivity : ComponentActivity() {
                                 val vm: DetailViewModel = viewModel {
                                     DetailViewModel(app.db.tracks(), app.lyricsRepository, app.scanner, app.artwork)
                                 }
+                                // (Lint false positive: value IS assigned below.)
+                                @Suppress("ProduceStateDoesNotAssignValue")
                                 val track by androidx.compose.runtime.produceState<
                                     com.verso.music.db.TrackEntity?>(null, path) {
                                     value = app.db.tracks().byPath(path)

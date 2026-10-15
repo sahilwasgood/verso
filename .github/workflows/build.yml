@@ -13,6 +13,7 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-      - uses: android-actions/setup-android@v3
+      # ubuntu runners ship the Android SDK preinstalled; just accept licenses.
+      - run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null
       - run: ./gradlew :core:test lintDebug --stacktrace
       - run: ./gradlew :app:assembleDebug --stacktrace

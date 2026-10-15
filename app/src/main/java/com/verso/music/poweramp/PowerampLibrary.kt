@@ -152,7 +152,7 @@ object PowerampLibrary {
             Uri.parse("$AUTH/folders/$folderId"), arrayOf("path"), null, null, null,
         )?.use { c ->
             if (c.moveToFirst()) {
-                val p = c.getString(c.getColumnIndex("path")) ?: return null
+                val p = c.getString(c.getColumnIndexOrThrow("path")) ?: return null
                 return when {
                     p.startsWith("primary/") ->
                         "/storage/emulated/0/" + p.removePrefix("primary/")
