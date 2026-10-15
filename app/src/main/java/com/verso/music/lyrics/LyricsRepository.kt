@@ -26,9 +26,13 @@ class LyricsRepository(
     ): String? {
         cache.get(title, artist, album)?.let { return it }
         // Never serve a REJECT match to Poweramp: a wrong lyric shown
-        // automatically is worse than "no lyrics found".
+        // automatically is worse than "no lyrics found". LOW matches stay
+        // visible for manual review in the detail screen only.
         val best = search(title, artist, album, durationMs.toLong())
-            .firstOrNull { it.confidence != com.verso.music.core.Confidence.REJECT }
+            .firstOrNull {
+                it.confidence == com.verso.music.core.Confidence.HIGH ||
+                    it.confidence == com.verso.music.core.Confidence.MEDIUM
+            }
             ?: return null
         val text = best.result.synced ?: best.result.plain ?: return null
         cache.put(title, artist, album, text)
