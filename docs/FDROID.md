@@ -43,7 +43,8 @@ Checklist against the current Inclusion Policy:
 - [x] Fastlane metadata present (fastlane/metadata/android/en-US/)
 - [x] Reproducible-friendly Gradle config (pinned versions, no timestamps)
 - [x] Tag v0.4.0 + GitHub release (published: sahilwasgood/verso releases)
-- [ ] Submit merge request to fdroiddata (needs GitLab login — see below)
+- [x] Submit merge request to fdroiddata:
+  https://gitlab.com/fdroid/fdroiddata/-/merge_requests/52627
 
 ## Submitting (one-time, needs a gitlab.com login)
 
