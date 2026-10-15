@@ -42,5 +42,12 @@ Checklist against the current Inclusion Policy:
 - [x] No bundled API keys (Last.fm/ListenBrainz are user-supplied)
 - [x] Fastlane metadata present (fastlane/metadata/android/en-US/)
 - [x] Reproducible-friendly Gradle config (pinned versions, no timestamps)
-- [ ] Tag v0.4.0 + GitHub release (maintainer step)
-- [ ] Submit merge request to fdroiddata (maintainer step)
+- [x] Tag v0.4.0 + GitHub release (published: sahilwasgood/verso releases)
+- [ ] Submit merge request to fdroiddata (needs GitLab login — see below)
+
+## Submitting (one-time, needs a gitlab.com login)
+
+1. Fork https://gitlab.com/fdroid/fdroiddata (web UI).
+2. Add `metadata/com.verso.music.yml` with the contents of
+   `docs/fdroid-metadata.yml` in this repo.
+3. Open a merge request titled `New App: Verso`.
