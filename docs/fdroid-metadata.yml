@@ -1,10 +1,5 @@
-# F-Droid submission metadata - copy to fdroiddata/metadata/<package>.yml
-# Package name changes if the app is renamed (see README).
-# Maintainer steps: create GitHub repo -> push + tag v0.4.0 ->
-# open fdroiddata merge request adding this file.
-
 Categories:
-  - Lyrics
+  - Multimedia
 License: Apache-2.0
 AuthorName: sahilwasgood
 WebSite: https://github.com/sahilwasgood/verso
@@ -13,18 +8,16 @@ IssueTracker: https://github.com/sahilwasgood/verso/issues
 
 AutoName: Verso
 
-# NOTE: no Summary/Description here - F-Droid takes those from the
-# Fastlane metadata in fastlane/metadata/android/en-US/.
-
 RepoType: git
 Repo: https://github.com/sahilwasgood/verso
 
 Builds:
   - versionName: 0.4.0
     versionCode: 4
-    commit: 5dee84d549d7122e6283f8312498e1dbe0d3c8ac
+    commit: 6ff831b17908c4cbb94542d72c93cd7b866a855a
     gradle:
       - yes
+    output: app/build/outputs/apk/release/app-release-unsigned.apk
     prebuild: echo sdk.dir=$ANDROID_HOME > local.properties
 
 AutoUpdateMode: Version
