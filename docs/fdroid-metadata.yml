@@ -14,7 +14,7 @@ Repo: https://github.com/sahilwasgood/verso
 Builds:
   - versionName: 0.4.0
     versionCode: 4
-    commit: 6ff831b17908c4cbb94542d72c93cd7b866a855a
+    commit: fce7fa56c20d3369d8143112ef3b8a6f8d375bdd
     gradle:
       - yes
     output: app/build/outputs/apk/release/app-release-unsigned.apk
