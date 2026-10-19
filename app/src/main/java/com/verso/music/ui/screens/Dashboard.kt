@@ -45,7 +45,7 @@ data class DashboardState(
     val lastResult: String? = null,
     val fixingMeta: Boolean = false,
     val metaProgress: String? = null,
-    /** API 30+: tag writes need one-time "All files access" approval. */
+    /** SAF: tag writes need a folder grant (OpenDocumentTree). */
     val showWriteAccess: Boolean = false,
     /** Poweramp installed but its library unreadable -> offer the grant flow. */
     val showPowerampConnect: Boolean = false,
@@ -107,13 +107,19 @@ class DashboardViewModel(
         }
     }
 
-    /** Re-check after returning from system Settings (call on resume). */
+    /** Re-check after returning from a picker or rescan (call on resume). */
     fun refreshWriteAccess() {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             _state.update {
-                it.copy(showWriteAccess = !com.verso.music.core.StorageAccess.canWrite())
+                it.copy(showWriteAccess = !com.verso.music.scan.SafFile.canWrite())
             }
         }
+    }
+
+    /** Persist a picked SAF tree, then clear the gate. */
+    fun onTreePicked(uri: android.net.Uri) {
+        com.verso.music.scan.ScanFolders.addTree(app, uri)
+        refreshWriteAccess()
     }
 
     override fun onCleared() {
@@ -168,9 +174,9 @@ class DashboardViewModel(
      */
     fun fixAllMetadata() {
         if (_state.value.fixingMeta) return
-        if (!com.verso.music.core.StorageAccess.canWrite()) {
+        if (!com.verso.music.scan.SafFile.canWrite()) {
             _state.update {
-                it.copy(lastResult = "Allow file changes first (button above), then retry.")
+                it.copy(lastResult = "Folder access needed first (button above), then retry.")
             }
             return
         }
@@ -221,6 +227,12 @@ class DashboardViewModel(
 fun DashboardScreen(vm: DashboardViewModel) {
     val s by vm.state.collectAsState()
     val context = androidx.compose.ui.platform.LocalContext.current
+    // SAF tree picker: result lands in onTreePicked (persisted grant).
+    val treePicker = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree(),
+    ) { uri ->
+        if (uri != null) vm.onTreePicked(uri)
+    }
     // Re-check the write-access flag whenever returning from Settings.
     val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
     androidx.compose.runtime.DisposableEffect(lifecycle) {
@@ -318,16 +330,15 @@ fun DashboardScreen(vm: DashboardViewModel) {
         }
         if (s.showWriteAccess && !s.scanning && !s.fixingMeta) {
             TextButton(
-                onClick = {
-                    com.verso.music.core.StorageAccess.request(context)
-                },
+                onClick = { treePicker.launch(null) },
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Allow file changes")
+                Text("Folder access")
             }
             Text(
-                "Fixing tags, embedding lyrics and saving covers writes into your " +
-                    "music files - approve it once in Settings, then retry.",
+                "Fixing tags, embedding lyrics and saving sidecars write into " +
+                    "your music files - pick each music folder once and Verso " +
+                    "gains write access to exactly those folders (SAF).",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

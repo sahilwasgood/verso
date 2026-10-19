@@ -1,0 +1,1 @@
+SAF folder grants replace "All files access" (F-Droid policy): tap Folder access on the home screen and pick your music folders. Tag fixes, embedded lyrics and .lrc sidecars now write through the picked folders; scanning falls back to Poweramp or the whole device as before.

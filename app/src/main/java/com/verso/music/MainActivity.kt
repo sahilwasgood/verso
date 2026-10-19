@@ -105,13 +105,13 @@ class MainActivity : ComponentActivity() {
                                 TrackDetailScreen(path, vm, track)
                             }
                             composable("settings") {
-                                val selected = com.verso.music.scan.ScanFolders.selected(this@MainActivity)
-                                foldersSummary = if (selected.isEmpty())
+                                val picked = com.verso.music.scan.ScanFolders.dirs(this@MainActivity)
+                                foldersSummary = if (picked.isEmpty())
                                     "Automatic - your Poweramp library when available, else whole device"
-                                else if (selected.size == 1)
-                                    "Manual override - 1 folder: ${selected.first()}"
+                                else if (picked.size == 1)
+                                    "Write access - 1 folder: ${picked.first()}"
                                 else
-                                    "Manual override - ${selected.size} folders: ${selected.sorted().joinToString(", ")}"
+                                    "Write access - ${picked.size} folders: ${picked.sorted().joinToString(", ")}"
                                 SettingsScreen(
                                     dynamicColor = dynamicColor,
                                     onDynamicColor = {

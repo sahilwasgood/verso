@@ -1,5 +1,6 @@
 package com.verso.music.tags
 
+import android.content.Context
 import org.jaudiotagger.audio.AudioFileIO
 import org.jaudiotagger.tag.FieldKey
 import java.io.File
@@ -34,9 +35,19 @@ sealed interface TagResult {
  */
 object TagManager {
 
+    private var app: Context? = null
+
     init {
         // jaudiotagger is chatty; silence below WARNING on Android logcat.
         Logger.getLogger("org.jaudiotagger").level = Level.WARNING
+    }
+
+    /** Called once from Application.onCreate - writes go through SAF. */
+    fun bind(c: Context) {
+        if (app == null) {
+            app = c.applicationContext
+            com.verso.music.scan.SafFile.bind(c)
+        }
     }
 
     fun read(file: File): TagResult {
@@ -67,24 +78,38 @@ object TagManager {
 
     /**
      * Writes [updates] (field → new value; null values skipped). Only writes
-     * fields present in the map. Returns error string on failure, null on success.
+     * fields present in the map. Returns error string on failure, null on
+     * success. Works on a cache copy, then streams the result back through
+     * SAF (the source file itself is never opened for direct writing).
      */
     fun write(file: File, updates: Map<FieldKey, String>): String? {
-        if (!file.canWrite()) return "File is not writable."
-        val beforeSize = file.length()
-        return try {
-            val audio = AudioFileIO.read(file)
-            val tag = audio.tagOrCreateAndSetDefault
-            for ((field, value) in updates) tag.setField(field, value)
-            audio.commit()
-            val afterSize = file.length()
-            // Sanity: a tag edit must not truncate or explode the file.
-            if (afterSize < beforeSize / 2 || afterSize > beforeSize * 2 + 1_000_000) {
-                "Write verification failed (size $beforeSize → $afterSize). File left as-is by the tag library."
-            } else null
+        val c = app ?: return "File access not initialised yet - try again."
+        val beforeSize = runCatching { file.length() }.getOrDefault(0L)
+        val bytes = try {
+            file.readBytes()
         } catch (e: Exception) {
-            humanize(e)
+            return "Could not read ${file.name}: ${e.message?.take(90) ?: e.javaClass.simpleName}"
         }
+        val result = try {
+            val tmp = File.createTempFile("verso-", "-tag", c.cacheDir)
+            try {
+                tmp.writeBytes(bytes)
+                val audio = AudioFileIO.read(tmp)
+                val tag = audio.tagOrCreateAndSetDefault
+                for ((field, value) in updates) tag.setField(field, value)
+                audio.commit()
+                tmp.readBytes()
+            } finally {
+                tmp.delete()
+            }
+        } catch (e: Exception) {
+            return humanize(e)
+        }
+        // Sanity: a tag edit must not truncate or explode the file.
+        if (result.size < beforeSize / 2 || result.size > beforeSize * 2 + 1_000_000) {
+            return "Write verification failed (size $beforeSize → ${result.size})."
+        }
+        return com.verso.music.scan.SafFile.write(file, result)
     }
 
     fun embedLyrics(file: File, lyrics: String): String? =

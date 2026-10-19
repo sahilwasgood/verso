@@ -20,8 +20,9 @@ suspend fun applyCandidate(
     path: String,
     candidate: MusicBrainz.Candidate,
 ): String = withContext(Dispatchers.IO) {
-    if (!com.verso.music.core.StorageAccess.canWrite()) {
-        return@withContext "File changes need one-time approval: tap “Allow file changes” on the home screen, then retry."
+    if (!com.verso.music.scan.SafFile.canWrite()) {
+        return@withContext "File changes need a folder grant: tap " +
+            "\u201CFolder access\u201D on the home screen, pick the music folder, then retry."
     }
     val t = dao.byPath(path) ?: return@withContext "Track no longer in library."
     val updates = linkedMapOf<org.jaudiotagger.tag.FieldKey, String>()

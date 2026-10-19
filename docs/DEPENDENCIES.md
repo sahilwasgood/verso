@@ -16,4 +16,4 @@ No prebuilt binaries, no GMS, no proprietary SDKs. All F-Droid acceptable.
 
 | Permission | Why |
 |---|---|
-| `MANAGE_EXTERNAL_STORAGE` (API 30+, "All files access") | Writing fixed tags, embedded lyrics and sidecar files into the user's own music files anywhere on shared storage. Requested once via system Settings (never silently); every write stays user-initiated (review-apply buttons, batch with on-screen progress). Without it the app is read-only on modern Android. |
+| SAF folder grants (`OpenDocumentTree`, persistable) | Writing fixed tags, embedded lyrics and sidecar files inside the folders the user picks on the home screen ("Folder access"). Every write is user-initiated (review-apply buttons, batch with on-screen progress), flows through the SAF grant only, and MediaStore covers devices where the file row exists. Without a grant the app is read-only on modern Android. |

@@ -1,36 +1,78 @@
 package com.verso.music.scan
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.provider.MediaStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Which device folders Verso scans - mirrors Poweramp's own model, where
- * only user-selected music folders are scanned (not the whole device).
- *
- * Poweramp exposes no public API for its folder list, so the user picks
- * folders here. Default is the platform Music directory.
+ * Which music folders Verso may edit: SAF trees picked by the user
+ * (F-Droid policy: STORAGE ACCESS FRAMEWORK instead of MANAGE_EXTERNAL_STORAGE).
+ * A tree lists its storage volume id (primary, 0F69-1920, ...); [dirOf]
+ * maps it back to the concrete /storage path the write layer needs.
  */
 object ScanFolders {
 
     private const val PREFS = "lyrictag"
-    private const val KEY = "scan_dirs"
+    private const val KEY_TREES = "saf_trees"
 
-    /** Default scope: everything (narrowed automatically when Poweramp's library is readable). */
-    val ALL: Set<String> = emptySet()
-    val DEFAULT: Set<String> = ALL
-
-    data class DirInfo(val dir: String, val count: Int)
-
-    fun selected(context: Context): Set<String> =
+    /** Persisted tree URIs (empty until the user picks at least one). */
+    fun treeUris(context: Context): List<String> =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getStringSet(KEY, null) ?: DEFAULT
+            .getStringSet(KEY_TREES, null)?.toList() ?: emptyList()
 
-    fun save(context: Context, dirs: Set<String>) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit().putStringSet(KEY, dirs.toSet()).apply()
+    /** Grants persistable access and remembers the tree. */
+    fun addTree(context: Context, uri: Uri) {
+        context.contentResolver.takePersistableUriPermission(
+            uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+        )
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val cur = prefs.getStringSet(KEY_TREES, null)?.toMutableSet() ?: mutableSetOf()
+        cur += uri.toString()
+        prefs.edit().putStringSet(KEY_TREES, cur).apply()
     }
+
+    fun removeTree(context: Context, uri: Uri) {
+        runCatching {
+            context.contentResolver.releasePersistableUriPermission(
+                uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+            )
+        }
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val cur = prefs.getStringSet(KEY_TREES, null)?.toMutableSet() ?: mutableSetOf()
+        cur -= uri.toString()
+        prefs.edit().putStringSet(KEY_TREES, cur).apply()
+    }
+
+    /** Tree URIs' storage volume id, e.g. "primary" or an SD card id. */
+    fun volumeOf(uri: Uri): String? = runCatching {
+        val id = android.provider.DocumentsContract.getTreeDocumentId(uri)
+        id.substringBefore(':').takeIf { it.isNotBlank() }
+    }.getOrNull()
+
+    /** "primary" -> /storage/emulated/0; SD cards by their volume id. */
+    fun dirOf(volumeId: String): String? =
+        when (volumeId) {
+            "primary" -> "/storage/emulated/0"
+            else -> if (volumeId.isBlank() || volumeId.contains(':')) null
+            else "/storage/$volumeId"
+        }
+
+    /** Absolute folder paths granted across all trees (for scope checks). */
+    fun dirs(context: Context): Set<String> =
+        treeUris(context).mapNotNull { raw ->
+            runCatching { Uri.parse(raw) }.getOrNull()?.let {
+                dirOf(runCatching {
+                    it.path?.substringAfter("/tree/", "").orEmpty().substringBefore(':')
+                }.getOrDefault(""))
+            }
+        }.toSet()
+
+    /** True when [path] lives under one of [granted] absolute folders. */
+    fun inScope(path: String, granted: Set<String>): Boolean =
+        granted.any { path == it || path.startsWith("$it/") }
 
     /** Distinct top-level relative dirs holding audio, with file counts. */
     suspend fun candidates(context: Context): List<DirInfo> = withContext(Dispatchers.IO) {
@@ -50,12 +92,7 @@ object ScanFolders {
         counts.map { (dir, count) -> DirInfo(dir, count) }.sortedByDescending { it.count }
     }
 
-    /** True when [path] lives under one of [selected] relative dirs (empty = all). */
-    fun inScope(path: String, selected: Set<String>): Boolean {
-        if (selected.isEmpty()) return true
-        val rel = relative(path) ?: return false
-        return selected.any { rel == it || rel.startsWith(it + "/") }
-    }
+    data class DirInfo(val dir: String, val count: Int)
 
     /** "/storage/emulated/0/Music/x.mp3" -> "Music/x.mp3"; SD cards too. */
     fun relative(path: String): String? {

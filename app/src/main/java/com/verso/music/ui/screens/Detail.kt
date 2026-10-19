@@ -128,14 +128,21 @@ class DetailViewModel(
         }
     }
 
-    fun saveSidecar(path: String, lyrics: String, synced: Boolean, onDone: (String) -> Unit) {        viewModelScope.launch(Dispatchers.IO) {
+    fun saveSidecar(path: String, lyrics: String, synced: Boolean, onDone: (String) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
             val base = path.substringBeforeLast('.')
             val target = File(base + if (synced) ".lrc" else ".txt")
-            val msg = runCatching {
-                target.writeText(if (synced) lyrics else LrcParser.parse(lyrics).lines.joinToString("\n") { it.text })
-                dao.updateLyricFlags(path, embedded = dao.byPath(path)?.hasEmbeddedLyrics ?: false, external = true)
-                "Saved ${target.name}."
-            }.getOrElse { "Save failed: ${it.message?.take(100)}" }
+            val content = if (synced) lyrics
+                else LrcParser.parse(lyrics).lines.joinToString("\n") { it.text }
+            val msg = com.verso.music.scan.SafFile.write(target, content.toByteArray())
+                ?: run {
+                    dao.updateLyricFlags(
+                        path,
+                        embedded = dao.byPath(path)?.hasEmbeddedLyrics ?: false,
+                        external = true,
+                    )
+                    "Saved ${target.name}."
+                }
             withContext(Dispatchers.Main) { onDone(msg) }
         }
     }

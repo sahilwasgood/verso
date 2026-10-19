@@ -29,18 +29,18 @@ class LibraryScanner(
     suspend fun scan(onProgress: (Progress) -> Unit = {}): ScanResult {
         val all = collectAudio(onProgress)
         // Scope, in order of truthfulness:
-        // 1. Folders the user explicitly picked in Settings (manual override)
+        // 1. SAF folders the user picked (write access comes with the grant)
         // 2. Poweramp's own library (exact file set via its documented provider)
         // 3. Whole-device MediaStore (Poweramp absent/unreadable)
-        val sel = ScanFolders.selected(context)
-        val paFiles = if (sel.isNotEmpty()) null else withContext(Dispatchers.IO) {
+        val granted = ScanFolders.dirs(context)
+        val paFiles = if (granted.isNotEmpty()) null else withContext(Dispatchers.IO) {
             com.verso.music.poweramp.PowerampLibrary.readFiles(context)
         }
         val scopeName: String
         val uris = when {
-            sel.isNotEmpty() -> {
+            granted.isNotEmpty() -> {
                 scopeName = "folders"
-                all.filter { ScanFolders.inScope(it.path, sel) }
+                all.filter { ScanFolders.inScope(it.path, granted) }
             }
             paFiles != null -> {
                 scopeName = "poweramp"

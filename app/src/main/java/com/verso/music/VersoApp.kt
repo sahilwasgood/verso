@@ -7,9 +7,15 @@ import com.verso.music.db.AppDatabase
 import com.verso.music.db.RoomLyricsCache
 import com.verso.music.lyrics.LyricsRepository
 import com.verso.music.scan.LibraryScanner
+import com.verso.music.tags.TagManager
 
 /** Manual DI container: no Hilt → fewer deps, easier F-Droid audit. */
 class VersoApp : Application() {
+
+    override fun onCreate() {
+        TagManager.bind(this)
+        super.onCreate()
+    }
 
     val db: AppDatabase by lazy {
         Room.databaseBuilder(this, AppDatabase::class.java, "lyrictag.db")
