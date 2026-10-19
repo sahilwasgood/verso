@@ -22,7 +22,7 @@ Builds:
 
   - versionName: 0.4.1
     versionCode: 5
-    commit: PLACEHOLDER
+    commit: 2a5eae7173e0f61b514708fd8573292f940cd349
     gradle:
       - yes
     output: app/build/outputs/apk/release/app-release-unsigned.apk
